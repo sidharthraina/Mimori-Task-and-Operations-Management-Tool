@@ -1,6 +1,6 @@
-# DARKBEAN Café — Task Management
+# Mimori - Task and Operations Management Tool (Single and Multi store)
 
-Internal staff task management app for DARKBEAN Café. Built with Next.js 14 (App Router), Tailwind CSS, and Supabase.
+Internal staff task management app for any business. Built with Next.js 14 (App Router), Tailwind CSS, and Supabase.
 
 ---
 
