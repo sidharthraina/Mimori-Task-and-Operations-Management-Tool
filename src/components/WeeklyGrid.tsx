@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatTime, isOverdue, CATEGORY_ORDER, todayISO } from '@/lib/utils'
 import type { Task, TaskLog, TaskCategory, User } from '@/types/database'
+import CameraCapture from '@/components/CameraCapture'
 
 type EffectiveStatus = 'upcoming' | 'pending' | 'missed' | 'done'
 
@@ -70,6 +71,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
   const [logs, setLogs] = useState(initialLogs)
   const [toggling, setToggling] = useState<string | null>(null)
   const [uploading, setUploading] = useState<string | null>(null)
+  const [cameraTask, setCameraTask] = useState<Task | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showTaskForm, setShowTaskForm] = useState(false)
   const [taskForm, setTaskForm] = useState(EMPTY_TASK_FORM)
@@ -351,6 +353,13 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
         </div>
       )}
 
+      {cameraTask && (
+        <CameraCapture
+          onCapture={file => { handlePhotoUpload(cameraTask, file); setCameraTask(null) }}
+          onClose={() => setCameraTask(null)}
+        />
+      )}
+
       {/* Add Task Modal */}
       {showTaskForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -529,8 +538,11 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
                                     </svg>
                                   </span>
                                 ) : (
-                                  <label
-                                    title="Upload photo"
+                                  <button
+                                    type="button"
+                                    title="Take photo"
+                                    onClick={() => setCameraTask(task)}
+                                    disabled={isUploadingThis}
                                     className={cn(
                                       'cursor-pointer text-gray-800 hover:text-brand-600 transition-colors',
                                       isUploadingThis && 'opacity-40 pointer-events-none'
@@ -540,18 +552,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
                                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                                     </svg>
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      capture="environment"
-                                      className="sr-only"
-                                      onChange={e => {
-                                        const f = e.target.files?.[0]
-                                        if (f) handlePhotoUpload(task, f)
-                                        e.target.value = ''
-                                      }}
-                                    />
-                                  </label>
+                                  </button>
                                 )}
                               </div>
                             </>
