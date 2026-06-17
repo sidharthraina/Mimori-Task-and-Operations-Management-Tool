@@ -1,0 +1,36 @@
+name: Purge Old Logs
+
+on:
+  schedule:
+    # Daily at 3:00 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:   # Allow manual trigger for testing
+
+jobs:
+  purge-logs:
+    name: Invoke purge-old-logs Edge Function
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Call Supabase Edge Function
+        run: |
+          HTTP_STATUS=$(curl --silent --output response.json --write-out "%{http_code}" \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "x-function-secret: ${{ secrets.SUPABASE_FUNCTION_SECRET }}" \
+            "${{ secrets.EDGE_FUNCTION_URL_PURGE_LOGS }}")
+
+          echo "HTTP status: $HTTP_STATUS"
+          echo "Response:"
+          cat response.json
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::Edge function returned HTTP $HTTP_STATUS"
+            exit 1
+          fi
+
+      - name: Report result
+        if: always()
+        run: |
+          echo "purge-old-logs completed at $(date -u)"

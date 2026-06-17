@@ -1,0 +1,24 @@
+-- ============================================================
+-- Sample Seed Tasks — Generic Café Template
+-- ============================================================
+-- Uncomment and customise before running.
+-- These are example tasks only — adjust times, categories, and
+-- descriptions to match your café's actual operations.
+
+-- insert into public.tasks (title, description, category, scheduled_time, frequency, active)
+-- values
+--   -- Opening
+--   ('Unlock and open',          'Unlock front door and disable alarm',                'Opening',  '07:00', 'daily', true),
+--   ('Turn on equipment',        'Power on espresso machine, grinders, and POS',       'Opening',  '07:05', 'daily', true),
+--   ('Check stock levels',       'Check fridge, dry goods, and consumable stock',      'Opening',  '07:15', 'daily', true),
+--   -- Prep
+--   ('Brew batch coffee',        'Brew first batch of drip or filter coffee',          'Prep',     '07:20', 'daily', true),
+--   ('Restock condiment station','Refill sugar, napkins, lids, and stirrers',          'Prep',     '07:30', 'daily', true),
+--   -- Cleaning
+--   ('Clean bar — midday',       'Wipe down coffee bar and steam wand',                'Cleaning', '12:00', 'daily', true),
+--   ('Mop floors',               'Mop main floor and bathroom',                        'Cleaning', '13:00', 'daily', true),
+--   ('End-of-shift bar clean',   'Full sanitise of espresso bar',                      'Cleaning', '16:00', 'daily', true),
+--   -- Closing
+--   ('Close POS',                'Run end-of-day report and close register',            'Closing',  '17:00', 'daily', true),
+--   ('Empty trash',              'Replace liners and take bins to collection point',   'Closing',  '17:15', 'daily', true),
+--   ('Lock up',                  'Secure all doors and activate alarm',                'Closing',  '17:30', 'daily', true);

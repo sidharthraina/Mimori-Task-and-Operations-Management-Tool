@@ -1,0 +1,38 @@
+name: Check Missed Tasks
+
+on:
+  schedule:
+    # Every 15 minutes all day — covers missed-task detection AND end-of-day report
+    # The edge function checks the admin's configured EOD time and fires within a 14-min window
+    # Adjust UTC offset for your timezone (IST = UTC+5:30, so 6 AM IST = 0:30 UTC)
+    - cron: '*/15 * * * *'
+  workflow_dispatch:   # Allow manual trigger for testing
+
+jobs:
+  check-missed:
+    name: Invoke check-missed-tasks Edge Function
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Call Supabase Edge Function
+        run: |
+          HTTP_STATUS=$(curl --silent --output response.json --write-out "%{http_code}" \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "x-function-secret: ${{ secrets.SUPABASE_FUNCTION_SECRET }}" \
+            "${{ secrets.EDGE_FUNCTION_URL_CHECK_MISSED }}")
+
+          echo "HTTP status: $HTTP_STATUS"
+          echo "Response:"
+          cat response.json
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::Edge function returned HTTP $HTTP_STATUS"
+            exit 1
+          fi
+
+      - name: Report result
+        if: always()
+        run: |
+          echo "check-missed-tasks completed at $(date -u)"
