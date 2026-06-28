@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import WeeklyGrid from '@/components/WeeklyGrid'
 
@@ -24,6 +25,8 @@ export default async function TasksPage({
   searchParams: { week?: string }
 }) {
   const supabase = createClient()
+  const cookieStore = cookies()
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -35,15 +38,22 @@ export default async function TasksPage({
 
   if (!profile || !profile.active) redirect('/login')
 
-  // weekOffset: 0 = current week, -1 = last week, -2 = two weeks ago, etc.
-  const weekOffset = Math.min(0, parseInt(searchParams.week ?? '0', 10) || 0)
+  // Resolve active store
+  const cookieStoreId = cookieStore.get('active-store-id')?.value
+  let activeStoreId: string = cookieStoreId ?? ''
+  if (!activeStoreId) {
+    const { data: def } = await supabase.from('stores').select('id').eq('is_default', true).single()
+    activeStoreId = def?.id ?? ''
+  }
 
+  const weekOffset = Math.min(0, parseInt(searchParams.week ?? '0', 10) || 0)
   const weekDates = getWeekDates(weekOffset)
   const [weekStart, weekEnd] = [weekDates[0], weekDates[6]]
 
   const { data: tasks } = await supabase
     .from('tasks')
     .select('*')
+    .eq('store_id', activeStoreId)
     .eq('active', true)
     .order('scheduled_time', { ascending: true })
 

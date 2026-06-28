@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminUsersPage() {
   const supabase = createClient()
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -18,10 +19,11 @@ export default async function AdminUsersPage() {
 
   if (profile?.role !== 'admin') redirect('/admin')
 
-  const { data: users } = await supabase
-    .from('users')
-    .select('*')
-    .order('name')
+  const [{ data: users }, { data: stores }, { data: assignments }] = await Promise.all([
+    supabase.from('users').select('*').order('name'),
+    supabase.from('stores').select('*').order('created_at'),
+    supabase.from('user_store_assignments').select('user_id, store_id'),
+  ])
 
   // Fetch last_sign_in_at from auth.users via service role
   const service = createServiceClient(
@@ -35,5 +37,11 @@ export default async function AdminUsersPage() {
     last_sign_in_at: authUsers?.find(au => au.id === u.id)?.last_sign_in_at ?? null,
   }))
 
-  return <AdminUsersClient initialUsers={usersWithLogin} />
+  return (
+    <AdminUsersClient
+      initialUsers={usersWithLogin}
+      stores={stores ?? []}
+      initialAssignments={assignments ?? []}
+    />
+  )
 }

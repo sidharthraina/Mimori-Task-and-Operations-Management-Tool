@@ -59,16 +59,21 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#fdf6ee] px-4">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Café Logo" className="w-28 h-28 mx-auto object-contain" />
-          <p className="text-sm text-gray-500 mt-3">Staff Portal</p>
-        </div>
+    <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ backgroundColor: '#fdf6ee' }}>
+      {/* Logo — unconstrained so the large text centres on the full page */}
+      <div className="text-center mb-8">
+        <p
+          className="uppercase text-dark-900 leading-none"
+          style={{ fontFamily: 'var(--font-permanent-marker)', fontSize: 'clamp(52px, 14vw, 111px)', fontWeight: 400 }}
+        >
+          {process.env.NEXT_PUBLIC_BUSINESS_NAME ?? 'Mimori'}
+        </p>
+        <p className="mt-3" style={{ fontFamily: 'var(--font-roboto)', fontWeight: 300, fontSize: 16, color: '#000' }}>Task &amp; Operations Management Tool</p>
+      </div>
 
-        <div className="card space-y-4">
+      {/* Form — constrained width, centred by parent */}
+      <div className="w-full max-w-sm">
+        <div className="card space-y-4 pb-6">
           {/* Google sign-in */}
           <button
             type="button"
@@ -143,6 +148,9 @@ function LoginForm() {
             </button>
           </form>
         </div>
+        <p className="mt-4 text-center text-black" style={{ fontFamily: 'var(--font-roboto)', fontSize: 12, fontWeight: 400 }}>
+          Powered by Mimori
+        </p>
       </div>
     </div>
   )

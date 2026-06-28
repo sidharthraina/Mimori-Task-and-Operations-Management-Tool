@@ -5,22 +5,26 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import type { User } from '@/types/database'
+import type { User, Store } from '@/types/database'
 
 interface Props {
   user: Pick<User, 'id' | 'name' | 'email' | 'role' | 'can_add_tasks' |
     'notif_individual_missed' | 'notif_batched_missed' | 'eod_report_time' | 'eod_report_email'>
   notificationCount?: number
+  stores: Store[]
+  activeStore: Store | null
 }
 
 type ProfileTab = 'account' | 'notifications'
 
-export default function DashboardNav({ user, notificationCount = 0 }: Props) {
+export default function DashboardNav({ user, notificationCount = 0, stores, activeStore }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const [count, setCount] = useState(notificationCount)
   const [showProfile, setShowProfile] = useState(false)
   const [profileTab, setProfileTab] = useState<ProfileTab>('account')
+  const [storeOpen, setStoreOpen] = useState(false)
+  const [currentStore, setCurrentStore] = useState(activeStore)
 
   // Account fields
   const [name, setName] = useState(user.name)
@@ -32,18 +36,27 @@ export default function DashboardNav({ user, notificationCount = 0 }: Props) {
   const [eodTime, setEodTime] = useState(user.eod_report_time ?? '22:00')
   const [eodEmail, setEodEmail] = useState(user.eod_report_email ?? '')
 
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [saving, setSaving] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null)
 
   const isAdmin   = user.role === 'admin'
   const isManager = user.role === 'manager'
+  const showStoreSwitcher = isAdmin || stores.length > 1
 
   function openProfile(tab: ProfileTab = 'account') {
     setProfileTab(tab)
     setProfileError(null)
     setProfileSuccess(null)
     setShowProfile(true)
+  }
+
+  function handleStoreSwitch(store: Store) {
+    document.cookie = `active-store-id=${store.id}; path=/; max-age=2592000; SameSite=Lax`
+    setCurrentStore(store)
+    setStoreOpen(false)
+    router.refresh()
   }
 
   async function handleSignOut() {
@@ -122,19 +135,88 @@ export default function DashboardNav({ user, notificationCount = 0 }: Props) {
       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
   )
 
+  const accentColor = currentStore?.color ?? '#d6721e'
+
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-brand-100 bg-white/90 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-brand-100 bg-white/90 backdrop-blur relative">
+        {/* Store colour accent strip */}
+        <div className="absolute bottom-0 left-0 right-0 h-[3px] transition-colors duration-300" style={{ backgroundColor: accentColor }} />
+
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
           {/* Logo */}
-          <Link href={isAdmin || isManager ? '/admin' : '/tasks'} className="flex items-center gap-2 flex-shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Café Logo" className="h-9 w-9 object-contain" />
-            <span className="hidden sm:inline text-sm font-semibold tracking-wide text-dark-900">{process.env.NEXT_PUBLIC_BUSINESS_NAME ?? 'Café'}</span>
+          <Link href={isAdmin || isManager ? '/admin' : '/tasks'} className="flex-shrink-0">
+            <span
+              className="text-dark-900 leading-none"
+              style={{ fontFamily: 'var(--font-permanent-marker)', fontSize: 32 }}
+            >
+              {process.env.NEXT_PUBLIC_BUSINESS_NAME ?? 'Mimori'}
+            </span>
           </Link>
 
-          {/* Nav links */}
-          <nav className="flex items-center gap-0.5 text-sm overflow-x-auto">
+          {/* Store switcher */}
+          {showStoreSwitcher && (
+            <div className="relative flex-shrink-0">
+              <button
+                onClick={() => setStoreOpen(o => !o)}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
+                <span className="max-w-[120px] truncate">{currentStore?.name ?? 'Select store'}</span>
+                <svg className={cn('w-3 h-3 text-gray-400 transition-transform', storeOpen && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {storeOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setStoreOpen(false)} />
+                  <div className="absolute left-0 top-full mt-1.5 z-50 w-52 rounded-xl border border-gray-100 bg-white shadow-lg overflow-hidden">
+                    {stores.map(store => (
+                      <button
+                        key={store.id}
+                        onClick={() => handleStoreSwitch(store)}
+                        className={cn(
+                          'w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-50',
+                          store.id === currentStore?.id && 'bg-gray-50'
+                        )}
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: store.color }} />
+                        <span className="flex-1 truncate text-gray-800">{store.name}</span>
+                        {store.is_default && (
+                          <span className="text-[10px] text-gray-400 font-medium">Default</span>
+                        )}
+                        {store.id === currentStore?.id && (
+                          <svg className="w-3.5 h-3.5 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                    {isAdmin && (
+                      <>
+                        <div className="border-t border-gray-100" />
+                        <Link
+                          href="/admin/stores"
+                          onClick={() => setStoreOpen(false)}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-gray-500 hover:bg-gray-50 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Manage stores
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Nav links — desktop only */}
+          <nav className="hidden sm:flex items-center gap-0.5 text-sm overflow-x-auto">
             {(isAdmin || isManager) && (
               <Link href="/admin" className={navLinkClass('/admin')}>Dashboard</Link>
             )}
@@ -143,7 +225,10 @@ export default function DashboardNav({ user, notificationCount = 0 }: Props) {
               <Link href="/admin/tasks" className={navLinkClass('/admin/tasks')}>Task List</Link>
             )}
             {isAdmin && (
-              <Link href="/admin/users" className={navLinkClass('/admin/users')}>Cafe Staff</Link>
+              <Link href="/admin/users" className={navLinkClass('/admin/users')}>Staff</Link>
+            )}
+            {isAdmin && (
+              <Link href="/admin/stores" className={navLinkClass('/admin/stores')}>Stores</Link>
             )}
           </nav>
 
@@ -154,7 +239,7 @@ export default function DashboardNav({ user, notificationCount = 0 }: Props) {
               <button
                 onClick={handleMarkAllRead}
                 title={count > 0 ? `${count} missed task alert${count > 1 ? 's' : ''} — click to dismiss` : 'No alerts'}
-                className="relative p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
               >
                 <svg className={cn('w-5 h-5', count > 0 ? 'text-red-500' : 'text-gray-400')}
                   fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -187,28 +272,81 @@ export default function DashboardNav({ user, notificationCount = 0 }: Props) {
               </div>
             </button>
 
-            <button onClick={handleSignOut} className="btn-ghost text-xs text-gray-500">
+            <button onClick={handleSignOut} className="hidden sm:inline-flex btn-ghost text-xs text-gray-500">
               Sign out
+            </button>
+
+            {/* Hamburger — mobile only */}
+            <button
+              onClick={() => setShowMobileMenu(v => !v)}
+              className="sm:hidden p-2 rounded-full hover:bg-gray-100 transition-colors"
+              aria-label={showMobileMenu ? 'Close menu' : 'Open menu'}
+            >
+              {showMobileMenu ? (
+                <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
             </button>
           </div>
         </div>
+
+        {/* Mobile nav menu */}
+        {showMobileMenu && (
+          <div className="sm:hidden border-t border-gray-100 px-4 py-3 space-y-1">
+            {(isAdmin || isManager) && (
+              <Link href="/admin" onClick={() => setShowMobileMenu(false)} className={cn(navLinkClass('/admin'), 'w-full justify-start')}>Dashboard</Link>
+            )}
+            <Link href="/tasks" onClick={() => setShowMobileMenu(false)} className={cn(navLinkClass('/tasks'), 'w-full justify-start')}>Tasks</Link>
+            {(isAdmin || isManager) && (
+              <Link href="/admin/tasks" onClick={() => setShowMobileMenu(false)} className={cn(navLinkClass('/admin/tasks'), 'w-full justify-start')}>Task List</Link>
+            )}
+            {isAdmin && (
+              <Link href="/admin/users" onClick={() => setShowMobileMenu(false)} className={cn(navLinkClass('/admin/users'), 'w-full justify-start')}>Staff</Link>
+            )}
+            {isAdmin && (
+              <Link href="/admin/stores" onClick={() => setShowMobileMenu(false)} className={cn(navLinkClass('/admin/stores'), 'w-full justify-start')}>Stores</Link>
+            )}
+            <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+              <button
+                onClick={() => { openProfile('account'); setShowMobileMenu(false) }}
+                className="flex items-center gap-2.5"
+              >
+                <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-sm flex-shrink-0">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="text-left">
+                  <div className="text-sm font-medium text-gray-800">{user.name}</div>
+                  <div className={cn('text-xs', isAdmin ? 'text-brand-600' : isManager ? 'text-purple-600' : 'text-gray-500')}>
+                    {isAdmin ? 'Admin' : isManager ? 'Manager' : 'Staff'}
+                  </div>
+                </div>
+              </button>
+              <button onClick={handleSignOut} className="btn-ghost text-xs text-gray-500">Sign out</button>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Profile modal */}
       {showProfile && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/[0.32] backdrop-blur-sm p-4"
           onClick={() => setShowProfile(false)}
         >
           <div
-            className="card w-full max-w-sm shadow-xl"
+            className="bg-white rounded-[28px] p-6 w-full max-w-sm shadow-lg"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-dark-900">Profile</h2>
               <button
                 onClick={() => setShowProfile(false)}
-                className="w-7 h-7 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -218,13 +356,13 @@ export default function DashboardNav({ user, notificationCount = 0 }: Props) {
 
             {/* Tabs — only admins see notification settings */}
             {isAdmin && (
-              <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1">
+              <div className="flex gap-1 mb-5 bg-gray-100 rounded-full p-1">
                 {(['account', 'notifications'] as ProfileTab[]).map(tab => (
                   <button
                     key={tab}
                     onClick={() => { setProfileTab(tab); setProfileError(null); setProfileSuccess(null) }}
                     className={cn(
-                      'flex-1 text-xs font-medium rounded-lg py-1.5 capitalize transition-colors',
+                      'flex-1 text-xs font-medium rounded-full py-1.5 capitalize transition-colors',
                       profileTab === tab ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
                     )}
                   >
@@ -258,7 +396,7 @@ export default function DashboardNav({ user, notificationCount = 0 }: Props) {
                 {profileError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{profileError}</p>}
                 {profileSuccess && <p className="text-sm text-green-600 bg-green-50 border border-green-200 rounded-xl px-3 py-2">{profileSuccess}</p>}
                 <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => setShowProfile(false)} className="btn-secondary flex-1">Cancel</button>
+                  <button type="button" onClick={() => setShowProfile(false)} className="btn-ghost flex-1">Cancel</button>
                   <button type="submit" disabled={saving} className="btn-primary flex-1">{saving ? 'Saving…' : 'Save'}</button>
                 </div>
               </form>
@@ -267,13 +405,9 @@ export default function DashboardNav({ user, notificationCount = 0 }: Props) {
             {/* Notification settings tab (admin only) */}
             {profileTab === 'notifications' && isAdmin && (
               <form onSubmit={handleSaveNotifications} className="space-y-5">
-
-                {/* Missed task emails */}
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Missed Task Alerts</p>
-
                   <div className="space-y-3">
-                    {/* Individual */}
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-gray-800">Individual emails</p>
@@ -283,18 +417,18 @@ export default function DashboardNav({ user, notificationCount = 0 }: Props) {
                         type="button"
                         onClick={() => setNotifIndividual(v => !v)}
                         className={cn(
-                          'relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
-                          notifIndividual ? 'bg-brand-500' : 'bg-gray-200'
+                          'relative flex-shrink-0 h-8 w-[52px] rounded-full border-2 transition-all duration-200',
+                          notifIndividual ? 'bg-brand-500 border-brand-500' : 'bg-gray-50 border-gray-400'
                         )}
-                        role="switch" aria-checked={notifIndividual}
+                        role="switch"
+                        aria-checked={notifIndividual}
                       >
-                        <span className={cn('inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200',
-                          notifIndividual ? 'translate-x-4' : 'translate-x-0'
+                        <span className={cn(
+                          'absolute top-1/2 -translate-y-1/2 rounded-full shadow-sm transition-all duration-200',
+                          notifIndividual ? 'left-6 w-6 h-6 bg-white' : 'left-1 w-4 h-4 bg-gray-400'
                         )} />
                       </button>
                     </div>
-
-                    {/* Batched */}
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-gray-800">Batched emails</p>
@@ -304,13 +438,15 @@ export default function DashboardNav({ user, notificationCount = 0 }: Props) {
                         type="button"
                         onClick={() => setNotifBatched(v => !v)}
                         className={cn(
-                          'relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
-                          notifBatched ? 'bg-brand-500' : 'bg-gray-200'
+                          'relative flex-shrink-0 h-8 w-[52px] rounded-full border-2 transition-all duration-200',
+                          notifBatched ? 'bg-brand-500 border-brand-500' : 'bg-gray-50 border-gray-400'
                         )}
-                        role="switch" aria-checked={notifBatched}
+                        role="switch"
+                        aria-checked={notifBatched}
                       >
-                        <span className={cn('inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200',
-                          notifBatched ? 'translate-x-4' : 'translate-x-0'
+                        <span className={cn(
+                          'absolute top-1/2 -translate-y-1/2 rounded-full shadow-sm transition-all duration-200',
+                          notifBatched ? 'left-6 w-6 h-6 bg-white' : 'left-1 w-4 h-4 bg-gray-400'
                         )} />
                       </button>
                     </div>
@@ -320,24 +456,14 @@ export default function DashboardNav({ user, notificationCount = 0 }: Props) {
                 <div className="border-t border-gray-100 pt-4">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">End of Day Report</p>
                   <p className="text-xs text-gray-400 mb-3">Sent daily with a full breakdown — counts, categories, who completed what, and missed tasks.</p>
-
                   <div className="space-y-3">
                     <div>
                       <label className="label">Send time</label>
-                      <input
-                        type="time" className="input w-36"
-                        value={eodTime}
-                        onChange={e => setEodTime(e.target.value)}
-                      />
+                      <input type="time" className="input w-36" value={eodTime} onChange={e => setEodTime(e.target.value)} />
                     </div>
                     <div>
                       <label className="label">Report email <span className="text-gray-400 font-normal">(leave blank to use ADMIN_EMAIL)</span></label>
-                      <input
-                        type="email" className="input"
-                        placeholder="owner@example.com"
-                        value={eodEmail}
-                        onChange={e => setEodEmail(e.target.value)}
-                      />
+                      <input type="email" className="input" placeholder="owner@example.com" value={eodEmail} onChange={e => setEodEmail(e.target.value)} />
                     </div>
                   </div>
                 </div>
@@ -346,7 +472,7 @@ export default function DashboardNav({ user, notificationCount = 0 }: Props) {
                 {profileSuccess && <p className="text-sm text-green-600 bg-green-50 border border-green-200 rounded-xl px-3 py-2">{profileSuccess}</p>}
 
                 <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => setShowProfile(false)} className="btn-secondary flex-1">Cancel</button>
+                  <button type="button" onClick={() => setShowProfile(false)} className="btn-ghost flex-1">Cancel</button>
                   <button type="submit" disabled={saving} className="btn-primary flex-1">{saving ? 'Saving…' : 'Save'}</button>
                 </div>
               </form>

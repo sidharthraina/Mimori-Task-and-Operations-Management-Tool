@@ -19,6 +19,22 @@ export interface User {
   updated_at: string
 }
 
+export interface Store {
+  id: string
+  name: string
+  address: string | null
+  color: string
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface UserStoreAssignment {
+  user_id: string
+  store_id: string
+  created_at: string
+}
+
 export interface Task {
   id: string
   title: string
@@ -27,6 +43,7 @@ export interface Task {
   scheduled_time: string   // "HH:MM"
   frequency: TaskFrequency
   active: boolean
+  store_id: string
   created_at: string
   updated_at: string
 }

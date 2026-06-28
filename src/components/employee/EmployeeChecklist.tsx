@@ -173,8 +173,8 @@ export default function EmployeeChecklist({ initialTasks, userId, today }: Props
                   className={cn(
                     'card transition-all',
                     isDone && 'opacity-75',
-                    isMissed && 'border-red-200 bg-red-50/50',
-                    overdue && !isDone && !isMissed && 'border-yellow-300 bg-yellow-50/50'
+                    isMissed && 'border border-red-200 bg-red-50/50',
+                    overdue && !isDone && !isMissed && 'border border-yellow-300 bg-yellow-50/50'
                   )}
                 >
                   <div className="flex items-start gap-3">

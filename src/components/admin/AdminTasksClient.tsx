@@ -10,6 +10,7 @@ const CATEGORIES: TaskCategory[] = ['Opening', 'Setup', 'Prep', 'Cleaning', 'Clo
 interface Props {
   initialTasks: Task[]
   isReadOnly?: boolean
+  storeId: string
 }
 
 const EMPTY_FORM = {
@@ -21,7 +22,7 @@ const EMPTY_FORM = {
   active: true,
 }
 
-export default function AdminTasksClient({ initialTasks, isReadOnly = false }: Props) {
+export default function AdminTasksClient({ initialTasks, isReadOnly = false, storeId }: Props) {
   const [tasks, setTasks] = useState(initialTasks)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Task | null>(null)
@@ -61,6 +62,7 @@ export default function AdminTasksClient({ initialTasks, isReadOnly = false }: P
       scheduled_time: form.scheduled_time,
       frequency: form.frequency,
       active: form.active,
+      store_id: storeId,
     }
 
     if (editing) {
@@ -115,8 +117,8 @@ export default function AdminTasksClient({ initialTasks, isReadOnly = false }: P
 
       {/* Form modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="card w-full max-w-lg shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/[0.32] backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[28px] p-6 w-full max-w-lg shadow-lg">
             <h2 className="text-lg font-bold mb-4">{editing ? 'Edit Task' : 'New Task'}</h2>
             <form onSubmit={handleSave} className="space-y-4">
               <div>
@@ -150,7 +152,7 @@ export default function AdminTasksClient({ initialTasks, isReadOnly = false }: P
                 <label htmlFor="active" className="text-sm text-gray-700">Active (included in daily checklist)</label>
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="btn-secondary flex-1">Cancel</button>
+                <button type="button" onClick={() => setShowForm(false)} className="btn-ghost flex-1">Cancel</button>
                 <button type="submit" disabled={saving} className="btn-primary flex-1">
                   {saving ? 'Saving…' : 'Save'}
                 </button>

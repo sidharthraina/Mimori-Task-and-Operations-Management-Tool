@@ -3,7 +3,11 @@
 -- ============================================================
 
 -- 1. Add 'manager' to user_role enum
+-- NOTE: must be run in its own transaction before the rest of this migration,
+-- because PostgreSQL cannot use a new enum value in the same transaction.
 ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'manager';
+
+COMMIT;
 
 -- 2. Add can_add_tasks permission column to users
 ALTER TABLE public.users
