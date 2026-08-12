@@ -4,6 +4,14 @@
 
 ---
 
+## Demo
+
+<video src="docs/demo.mp4" controls width="100%"></video>
+
+*(If the video doesn't render inline, [watch it directly](docs/demo.mp4).)*
+
+---
+
 ## Product Overview
 
 ### The Problem
