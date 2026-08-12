@@ -197,7 +197,7 @@ export default function AdminEscalationClient({ initialRules, storeId, roster }:
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-onSurface">Escalation Chains</h1>
+          <h1 className="text-xl font-heading text-onSurface">Escalation Chains</h1>
           <p className="text-xs text-onSurfaceVariant/70 mt-0.5">Who gets notified, and when, if a task is missed or completed without required proof.</p>
         </div>
         <button onClick={handleAddRule} className="btn-primary">+ Add rule set</button>

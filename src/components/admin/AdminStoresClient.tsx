@@ -153,7 +153,7 @@ export default function AdminStoresClient({ initialStores }: Props) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-onSurface">Stores</h1>
+          <h1 className="text-xl font-heading text-onSurface">Stores</h1>
           <p className="text-xs text-onSurfaceVariant/70 mt-0.5">Manage locations and their task lists</p>
         </div>
         <button onClick={openNew} className="btn-primary">+ Add Store</button>
@@ -222,7 +222,7 @@ export default function AdminStoresClient({ initialStores }: Props) {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4">
           <div className="modal-surface p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold mb-4 text-onSurface">{editing ? 'Edit Store' : 'Add Store'}</h2>
+            <h2 className="text-lg font-heading mb-4 text-onSurface">{editing ? 'Edit Store' : 'Add Store'}</h2>
             <form onSubmit={handleSave} className="space-y-4">
               <div>
                 <label className="label">Store name *</label>
@@ -317,7 +317,7 @@ export default function AdminStoresClient({ initialStores }: Props) {
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4">
           <div className="modal-surface p-6 w-full max-w-sm">
-            <h2 className="text-lg font-bold mb-2 text-onSurface">Delete store?</h2>
+            <h2 className="text-lg font-heading mb-2 text-onSurface">Delete store?</h2>
             <p className="text-sm text-onSurfaceVariant mb-5">
               This will permanently remove the store and unassign all staff. Tasks must be removed first.
             </p>

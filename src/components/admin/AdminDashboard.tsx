@@ -135,7 +135,7 @@ export default function AdminDashboard({ tasks, logs: initialLogs, today, roster
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-onSurface">Dashboard</h1>
+        <h1 className="text-xl font-heading text-onSurface">Dashboard</h1>
         <span className="text-sm text-onSurfaceVariant">{formatDate(filterDate)}</span>
       </div>
 

@@ -73,6 +73,9 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-roboto)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         display: ['var(--font-permanent-marker)', 'cursive'],
+        // Page titles and modal/section headings only — single weight (400),
+        // no bold cut exists for this font.
+        heading: ['var(--font-alata)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         modal: '28px',

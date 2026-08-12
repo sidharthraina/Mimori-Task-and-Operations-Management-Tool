@@ -392,7 +392,7 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
           >
             {/* Sidebar */}
             <div className="w-28 sm:w-40 flex-shrink-0 flex flex-col">
-              <h2 className="text-base sm:text-lg font-bold text-onSurface mb-4 px-1">Profile</h2>
+              <h2 className="text-base sm:text-lg font-heading text-onSurface mb-4 px-1">Profile</h2>
               <nav className="space-y-0.5 flex-1">
                 {sidebarItems.filter(i => i.show).map(item => (
                   <button

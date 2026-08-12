@@ -129,7 +129,7 @@ export default function AdminTasksClient({ initialTasks, isReadOnly = false, sto
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-onSurface">Task Master List</h1>
+          <h1 className="text-xl font-heading text-onSurface">Task Master List</h1>
           {isReadOnly && <p className="text-xs text-onSurfaceVariant/70 mt-0.5">View only</p>}
         </div>
         {!isReadOnly && <button onClick={openNew} className="btn-primary">+ Add Task</button>}
@@ -145,7 +145,7 @@ export default function AdminTasksClient({ initialTasks, isReadOnly = false, sto
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="modal-surface p-6 w-full max-w-lg my-8">
-            <h2 className="text-lg font-bold mb-4 text-onSurface">{editing ? 'Edit Task' : 'New Task'}</h2>
+            <h2 className="text-lg font-heading mb-4 text-onSurface">{editing ? 'Edit Task' : 'New Task'}</h2>
             <form onSubmit={handleSave} className="space-y-4">
               <TaskFormFields value={form} onChange={patchForm} roster={roster} escalationRules={escalationRules} />
               <div className="flex gap-3 pt-2">

@@ -339,7 +339,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold text-onSurface">Weekly Tasks</h1>
+          <h1 className="text-xl font-heading text-onSurface">Weekly Tasks</h1>
           <p className="text-xs text-onSurfaceVariant/70 mt-0.5">{weekDates[0]} – {weekDates[6]}</p>
         </div>
         {canAddTasks && isCurrentWeek && (
@@ -434,7 +434,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
       {showTaskForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="modal-surface w-full max-w-lg p-5 sm:p-6 my-8">
-            <h2 className="text-lg font-bold mb-4 text-onSurface">New Task</h2>
+            <h2 className="text-lg font-heading mb-4 text-onSurface">New Task</h2>
             <form onSubmit={handleAddTask} className="space-y-4">
               <TaskFormFields value={taskForm} onChange={patchTaskForm} roster={roster} />
               <div className="flex gap-3 pt-2">
@@ -454,7 +454,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
       {notesTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4">
           <div className="modal-surface w-full max-w-md p-5 sm:p-6">
-            <h2 className="text-lg font-bold mb-1 text-onSurface">Notes</h2>
+            <h2 className="text-lg font-heading mb-1 text-onSurface">Notes</h2>
             <p className="text-xs text-onSurfaceVariant/70 mb-4">{notesTask.title}</p>
             <textarea
               className="input resize-none" rows={4}

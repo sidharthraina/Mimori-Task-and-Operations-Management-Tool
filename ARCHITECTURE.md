@@ -320,7 +320,7 @@ Dark mode is handled by `next-themes` (`class` strategy, `system` default, `enab
 - **Cards**: `rounded-2xl`, `shadow-elevation-1` (M3 elevation level 1), `bg-surfaceContainerLow`.
 - **Modals**: `rounded-modal` (28px, M3 "extra large" shape), `shadow-elevation-3`, `bg-surfaceContainerHigh`.
 - **Elevation scale**: 3 neutral, un-tinted shadow levels (cards → dropdowns/popovers → modals), matching M3's structure with a softer shadow treatment.
-- **Typography**: Roboto (body/UI, weights 300–700, M3's default typeface), Permanent Marker (brand wordmark only).
+- **Typography**: Roboto (body/UI, weights 300–700, M3's default typeface) for everything by default; Alata (`font-heading`, weight 400 only — it has no bold cut, so heading elements drop `font-bold`/`font-semibold` rather than let the browser synthesize a fake one) for page titles and modal/section headings specifically; Permanent Marker (brand wordmark only, nowhere else).
 
 ### Deliberate exceptions
 

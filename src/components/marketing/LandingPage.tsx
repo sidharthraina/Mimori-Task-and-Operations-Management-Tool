@@ -167,7 +167,7 @@ export default function LandingPage({ businessName, logoUrl }: Props) {
             <span className="chip mb-5">
               Open-source · Self-hosted · Whitelabel-ready
             </span>
-            <h1 className="text-4xl sm:text-5xl font-bold text-onSurface leading-[1.1] tracking-tight">
+            <h1 className="text-4xl sm:text-5xl font-heading text-onSurface leading-[1.1] tracking-tight">
               Your checklists, <span className="text-primary">actually completed.</span>
             </h1>
             <p className="mt-5 text-lg text-onSurfaceVariant leading-relaxed max-w-lg">
@@ -246,7 +246,7 @@ export default function LandingPage({ businessName, logoUrl }: Props) {
       {/* Features */}
       <section id="features" className="max-w-6xl mx-auto px-4 py-16">
         <div className="max-w-2xl mx-auto text-center mb-12">
-          <h2 className="text-3xl font-bold text-onSurface">Everything an operations team actually needs</h2>
+          <h2 className="text-3xl font-heading text-onSurface">Everything an operations team actually needs</h2>
           <p className="mt-3 text-onSurfaceVariant">
             Not a generic to-do app — built specifically for recurring, location-based
             accountability.
@@ -268,7 +268,7 @@ export default function LandingPage({ businessName, logoUrl }: Props) {
       {/* How it works */}
       <section id="how-it-works" className="max-w-6xl mx-auto px-4 py-16">
         <div className="max-w-2xl mx-auto text-center mb-12">
-          <h2 className="text-3xl font-bold text-onSurface">How it works</h2>
+          <h2 className="text-3xl font-heading text-onSurface">How it works</h2>
         </div>
         <div className="grid sm:grid-cols-3 gap-6">
           {[
@@ -302,7 +302,7 @@ export default function LandingPage({ businessName, logoUrl }: Props) {
       {/* Final CTA */}
       <section className="max-w-6xl mx-auto px-4 pb-20">
         <div className="rounded-modal bg-primaryContainer px-8 py-12 sm:py-16 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold text-onPrimaryContainer">
+          <h2 className="text-2xl sm:text-3xl font-heading text-onPrimaryContainer">
             Ready to stop chasing checklists?
           </h2>
           <p className="mt-3 text-onPrimaryContainer/80 max-w-md mx-auto">

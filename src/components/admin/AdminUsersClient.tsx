@@ -192,7 +192,7 @@ export default function AdminUsersClient({ initialUsers, stores, initialAssignme
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-onSurface">Staff</h1>
+        <h1 className="text-xl font-heading text-onSurface">Staff</h1>
         {!isReadOnly && (
           <button onClick={() => setShowForm(true)} className="btn-primary">+ Add Staff</button>
         )}
@@ -209,7 +209,7 @@ export default function AdminUsersClient({ initialUsers, stores, initialAssignme
       {showForm && !isReadOnly && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4">
           <div className="modal-surface p-6 w-full max-w-md">
-            <h2 className="text-lg font-bold mb-4 text-onSurface">Add Staff Account</h2>
+            <h2 className="text-lg font-heading mb-4 text-onSurface">Add Staff Account</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="label">Full name *</label>
@@ -393,7 +393,7 @@ export default function AdminUsersClient({ initialUsers, stores, initialAssignme
       {confirmRemove && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4">
           <div className="modal-surface p-6 w-full max-w-sm">
-            <h2 className="text-lg font-bold text-onSurface mb-1">Remove {confirmRemove.name}?</h2>
+            <h2 className="text-lg font-heading text-onSurface mb-1">Remove {confirmRemove.name}?</h2>
             <p className="text-sm text-onSurfaceVariant mb-1">
               This will permanently delete their account and remove them from all stores.
             </p>

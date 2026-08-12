@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Permanent_Marker, Roboto } from 'next/font/google'
+import { Alata, Permanent_Marker, Roboto } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
 import { createClient } from '@/lib/supabase/server'
 import './globals.css'
@@ -16,6 +16,16 @@ const roboto = Roboto({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-roboto',
+})
+
+// Alata ships one weight only (400/Regular) — no bold cut exists, so
+// heading elements using it drop font-bold/font-semibold rather than
+// let the browser synthesize a fake bold.
+const alata = Alata({
+  weight: '400',
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-alata',
 })
 
 export const revalidate = 60
@@ -44,7 +54,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${permanentMarker.variable} ${roboto.variable}`}
+      className={`${permanentMarker.variable} ${roboto.variable} ${alata.variable}`}
       suppressHydrationWarning
     >
       <body>
