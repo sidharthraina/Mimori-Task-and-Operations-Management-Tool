@@ -4,14 +4,6 @@
 
 ---
 
-## Demo
-
-<video src="docs/demo.mp4" controls width="100%"></video>
-
-*(If the video doesn't render inline, [watch it directly](docs/demo.mp4).)*
-
----
-
 ## Product Overview
 
 ### The Problem
@@ -48,6 +40,16 @@ It's built generically enough that "store" can mean a café, a gym floor, a clin
 | **Light & dark mode** | A full Material Design 3 color system generated from your brand color, in both light and dark, switchable per user (or left on "system"). |
 | **Live whitelabel branding** | Business name and logo are editable from inside the app — no redeploy needed to rebrand. |
 | **Public landing page** | A whitelabel-aware marketing page at `/` explains the product to visitors before they sign in — the front door for a forked deployment, not just a login wall. |
+
+---
+### Screenshots & Demo Clip
+
+<img width="1299" height="772" alt="Screenshot 2026-08-12 at 7 22 02 PM" src="https://github.com/user-attachments/assets/e2278da6-d311-4000-95b1-8ffba255718c" />
+<img width="1299" height="773" alt="Screenshot 2026-08-12 at 7 23 23 PM" src="https://github.com/user-attachments/assets/85cf25b3-50aa-4b33-959f-ee7c4ee90bc5" />
+
+<video src="docs/demo.mp4" controls width="100%"></video>
+
+*(If the video doesn't render inline, **[watch it directly](docs/demo.mp4).**)*
 
 ---
 
