@@ -221,7 +221,7 @@ export default function AdminStoresClient({ initialStores }: Props) {
       {/* Create / Edit modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4">
-          <div className="modal-surface p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="modal-surface p-6 w-full max-w-md my-8 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-heading mb-4 text-onSurface">{editing ? 'Edit Store' : 'Add Store'}</h2>
             <form onSubmit={handleSave} className="space-y-4">
               <div>
@@ -316,7 +316,7 @@ export default function AdminStoresClient({ initialStores }: Props) {
       {/* Delete confirmation */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4">
-          <div className="modal-surface p-6 w-full max-w-sm">
+          <div className="modal-surface p-6 w-full max-w-sm my-8 max-h-[85vh] overflow-y-auto">
             <h2 className="text-lg font-heading mb-2 text-onSurface">Delete store?</h2>
             <p className="text-sm text-onSurfaceVariant mb-5">
               This will permanently remove the store and unassign all staff. Tasks must be removed first.

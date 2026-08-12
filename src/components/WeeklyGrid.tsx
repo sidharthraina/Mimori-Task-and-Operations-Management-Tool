@@ -54,6 +54,7 @@ interface Props {
   weekOffset?: number
   roster?: Roster[]
   store?: Pick<Store, 'latitude' | 'longitude' | 'geofence_radius_meters'> | null
+  storeId: string
 }
 
 function parseDayHeader(dateStr: string, today: string) {
@@ -67,7 +68,7 @@ function parseDayHeader(dateStr: string, today: string) {
   }
 }
 
-export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, profile, weekDates, weekOffset = 0, roster = [], store = null }: Props) {
+export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, profile, weekDates, weekOffset = 0, roster = [], store = null, storeId }: Props) {
   const [tasks, setTasks] = useState(initialTasks)
   const [logs, setLogs] = useState(initialLogs)
   const [toggling, setToggling] = useState<string | null>(null)
@@ -197,6 +198,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
         scheduled_time: taskForm.scheduled_time,
         frequency: 'daily',
         active: taskForm.active,
+        store_id: storeId,
         recurrence_unit: taskForm.recurrence_unit,
         recurrence_interval: taskForm.recurrence_interval,
         recurrence_weekdays: taskForm.recurrence_weekdays.length > 0 ? taskForm.recurrence_weekdays : null,
@@ -433,7 +435,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
       {/* Add Task Modal */}
       {showTaskForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="modal-surface w-full max-w-lg p-5 sm:p-6 my-8">
+          <div className="modal-surface w-full max-w-lg p-5 sm:p-6 my-8 max-h-[85vh] overflow-y-auto">
             <h2 className="text-lg font-heading mb-4 text-onSurface">New Task</h2>
             <form onSubmit={handleAddTask} className="space-y-4">
               <TaskFormFields value={taskForm} onChange={patchTaskForm} roster={roster} />
@@ -453,7 +455,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
       {/* Notes Modal */}
       {notesTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4">
-          <div className="modal-surface w-full max-w-md p-5 sm:p-6">
+          <div className="modal-surface w-full max-w-md p-5 sm:p-6 max-h-[85vh] overflow-y-auto">
             <h2 className="text-lg font-heading mb-1 text-onSurface">Notes</h2>
             <p className="text-xs text-onSurfaceVariant/70 mb-4">{notesTask.title}</p>
             <textarea

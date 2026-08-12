@@ -144,7 +144,7 @@ export default function AdminTasksClient({ initialTasks, isReadOnly = false, sto
       {/* Form modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="modal-surface p-6 w-full max-w-lg my-8">
+          <div className="modal-surface p-6 w-full max-w-lg my-8 max-h-[85vh] overflow-y-auto">
             <h2 className="text-lg font-heading mb-4 text-onSurface">{editing ? 'Edit Task' : 'New Task'}</h2>
             <form onSubmit={handleSave} className="space-y-4">
               <TaskFormFields value={form} onChange={patchForm} roster={roster} escalationRules={escalationRules} />

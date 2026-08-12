@@ -89,6 +89,7 @@ export default async function TasksPage({
       weekOffset={weekOffset}
       roster={roster}
       store={activeStore ?? null}
+      storeId={activeStoreId}
     />
   )
 }

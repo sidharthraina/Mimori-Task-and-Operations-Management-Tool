@@ -172,7 +172,7 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
   }
 
   const navLinkClass = (href: string) => cn(
-    'btn-ghost whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+    'btn-ghost whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-heading font-normal transition-colors',
     isActive(href)
       ? 'bg-primaryContainer text-onPrimaryContainer'
       : 'text-onSurfaceVariant hover:bg-surfaceContainer hover:text-onSurface'

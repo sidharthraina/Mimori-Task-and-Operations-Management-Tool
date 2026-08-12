@@ -46,6 +46,7 @@ export default function AdminEscalationClient({ initialRules, storeId, roster }:
   const [saving, setSaving] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<DraftRule | null>(null)
 
   function patchRule(ruleId: string, patch: Partial<DraftRule>) {
     setRules(prev => prev.map(r => r.id === ruleId ? { ...r, ...patch } : r))
@@ -185,12 +186,11 @@ export default function AdminEscalationClient({ initialRules, storeId, roster }:
   }
 
   async function handleDeleteRule(rule: DraftRule) {
-    if (rule.is_default) return
-    if (!confirm(`Delete "${rule.name}"? Tasks using it will fall back to the store default.`)) return
     const supabase = createClient()
     const { error: err } = await supabase.from('escalation_rules').delete().eq('id', rule.id)
-    if (err) { setError(err.message); return }
+    if (err) { setError(err.message); setConfirmDelete(null); return }
     setRules(prev => prev.filter(r => r.id !== rule.id))
+    setConfirmDelete(null)
   }
 
   return (
@@ -224,7 +224,7 @@ export default function AdminEscalationClient({ initialRules, storeId, roster }:
                   <button onClick={() => handleSetDefault(rule)} className="btn-ghost text-xs text-onSurfaceVariant">Set as default</button>
                 )}
                 {!rule.is_default && (
-                  <button onClick={() => handleDeleteRule(rule)} className="btn-ghost text-xs text-error/70 hover:text-error">Delete</button>
+                  <button onClick={() => setConfirmDelete(rule)} className="btn-ghost text-xs text-error/70 hover:text-error">Delete</button>
                 )}
               </div>
             </div>
@@ -327,6 +327,27 @@ export default function AdminEscalationClient({ initialRules, storeId, roster }:
           </div>
         ))}
       </div>
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4">
+          <div className="modal-surface p-6 w-full max-w-sm my-8 max-h-[85vh] overflow-y-auto">
+            <h2 className="text-lg font-heading mb-2 text-onSurface">Delete &quot;{confirmDelete.name}&quot;?</h2>
+            <p className="text-sm text-onSurfaceVariant mb-5">
+              Tasks using this rule set will fall back to the store default.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDelete(null)} className="btn-ghost flex-1">Cancel</button>
+              <button
+                onClick={() => handleDeleteRule(confirmDelete)}
+                className="flex-1 inline-flex items-center justify-center rounded-xl bg-error px-5 py-3 text-sm font-semibold text-onError hover:bg-error/90 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
