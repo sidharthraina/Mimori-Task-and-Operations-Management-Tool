@@ -104,6 +104,7 @@ cp .env.example .env.local
 # supabase/migrations/007_recurrence_and_assignment.sql
 # supabase/migrations/008_escalation_matrix.sql
 # supabase/migrations/009_whitelabel_branding.sql
+# supabase/migrations/010_geofencing.sql
 
 # 4. Start dev server
 npm run dev
