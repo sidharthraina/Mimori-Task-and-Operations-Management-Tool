@@ -137,27 +137,27 @@ export default function EmployeeChecklist({ initialTasks, userId, today }: Props
       {/* Progress bar */}
       <div className="card">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">Today&apos;s progress</span>
-          <span className="text-sm font-bold text-brand-600">{doneCount}/{totalCount}</span>
+          <span className="text-sm font-medium text-onSurface">Today&apos;s progress</span>
+          <span className="text-sm font-bold text-primary">{doneCount}/{totalCount}</span>
         </div>
-        <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+        <div className="h-2.5 rounded-full bg-surfaceContainerHigh overflow-hidden">
           <div
-            className="h-full rounded-full bg-brand-500 transition-all duration-300"
+            className="h-full rounded-full bg-primary transition-all duration-300"
             style={{ width: `${pct}%` }}
           />
         </div>
-        <p className="text-xs text-gray-400 mt-1.5">{pct}% complete</p>
+        <p className="text-xs text-onSurfaceVariant/70 mt-1.5">{pct}% complete</p>
       </div>
 
       {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+        <div className="text-sm text-onErrorContainer bg-errorContainer rounded-xl px-4 py-3">
           {error}
         </div>
       )}
 
       {grouped.map(([category, catTasks]) => (
         <section key={category}>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-brand-500 mb-3 px-1">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3 px-1">
             {category}
           </h2>
           <div className="space-y-3">
@@ -173,8 +173,8 @@ export default function EmployeeChecklist({ initialTasks, userId, today }: Props
                   className={cn(
                     'card transition-all',
                     isDone && 'opacity-75',
-                    isMissed && 'border border-red-200 bg-red-50/50',
-                    overdue && !isDone && !isMissed && 'border border-yellow-300 bg-yellow-50/50'
+                    isMissed && 'border border-error/30 bg-errorContainer/50',
+                    overdue && !isDone && !isMissed && 'border border-warning/40 bg-warningContainer/50'
                   )}
                 >
                   <div className="flex items-start gap-3">
@@ -186,10 +186,10 @@ export default function EmployeeChecklist({ initialTasks, userId, today }: Props
                       className={cn(
                         'flex-shrink-0 mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all',
                         isDone
-                          ? 'border-green-500 bg-green-500 text-white'
+                          ? 'border-success bg-success text-onSuccess'
                           : isMissed
-                          ? 'border-red-300 bg-red-100 cursor-not-allowed'
-                          : 'border-gray-300 hover:border-brand-400'
+                          ? 'border-error/40 bg-errorContainer cursor-not-allowed'
+                          : 'border-outline hover:border-primary/60'
                       )}
                     >
                       {isDone && (
@@ -197,7 +197,7 @@ export default function EmployeeChecklist({ initialTasks, userId, today }: Props
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       )}
-                      {isMissed && <span className="text-red-400 text-xs">✕</span>}
+                      {isMissed && <span className="text-onErrorContainer text-xs">✕</span>}
                     </button>
 
                     {/* Task info */}
@@ -205,7 +205,7 @@ export default function EmployeeChecklist({ initialTasks, userId, today }: Props
                       <div className="flex items-start justify-between gap-2">
                         <p className={cn(
                           'font-medium text-sm leading-snug',
-                          isDone ? 'line-through text-gray-400' : 'text-gray-900'
+                          isDone ? 'line-through text-onSurfaceVariant/60' : 'text-onSurface'
                         )}>
                           {task.title}
                         </p>
@@ -214,12 +214,12 @@ export default function EmployeeChecklist({ initialTasks, userId, today }: Props
                           {overdue && !isDone && !isMissed && (
                             <span className="badge-pending">Overdue</span>
                           )}
-                          <span className="text-xs text-gray-400">{formatTime(task.scheduled_time)}</span>
+                          <span className="text-xs text-onSurfaceVariant/70">{formatTime(task.scheduled_time)}</span>
                         </div>
                       </div>
 
                       {task.description && (
-                        <p className="text-xs text-gray-500 mt-0.5">{task.description}</p>
+                        <p className="text-xs text-onSurfaceVariant mt-0.5">{task.description}</p>
                       )}
 
                       {/* Photo section */}
@@ -230,9 +230,9 @@ export default function EmployeeChecklist({ initialTasks, userId, today }: Props
                             <img
                               src={log.photo_url}
                               alt="Task proof"
-                              className="h-12 w-12 rounded-lg object-cover border border-gray-200"
+                              className="h-12 w-12 rounded-lg object-cover border border-outlineVariant"
                             />
-                            <span className="text-xs text-green-600">📷 Photo attached</span>
+                            <span className="text-xs text-success">📷 Photo attached</span>
                           </div>
                         ) : (
                           <PhotoUpload
@@ -244,7 +244,7 @@ export default function EmployeeChecklist({ initialTasks, userId, today }: Props
                       </div>
 
                       {isDone && log?.completed_at && (
-                        <p className="text-xs text-green-600 mt-1">
+                        <p className="text-xs text-success mt-1">
                           ✓ Done at {new Date(log.completed_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       )}
@@ -258,7 +258,7 @@ export default function EmployeeChecklist({ initialTasks, userId, today }: Props
       ))}
 
       {tasks.length === 0 && (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-onSurfaceVariant/70">
           <p className="text-4xl mb-2">✓</p>
           <p className="font-medium">No tasks for today</p>
         </div>

@@ -4,15 +4,114 @@
 
 @layer base {
   :root {
-    --background: 250 245 240;
-    --foreground: 26 18 11;
+    --primary: 139 80 35;
+    --onPrimary: 255 255 255;
+    --primaryContainer: 255 220 198;
+    --onPrimaryContainer: 110 57 13;
+
+    --secondary: 117 88 70;
+    --onSecondary: 255 255 255;
+    --secondaryContainer: 255 220 198;
+    --onSecondaryContainer: 91 65 48;
+
+    --tertiary: 96 97 52;
+    --onTertiary: 255 255 255;
+    --tertiaryContainer: 229 230 173;
+    --onTertiaryContainer: 72 73 31;
+
+    --error: 186 26 26;
+    --onError: 255 255 255;
+    --errorContainer: 255 218 214;
+    --onErrorContainer: 147 0 10;
+
+    --success: 48 107 37;
+    --onSuccess: 255 255 255;
+    --successContainer: 177 244 157;
+    --onSuccessContainer: 1 34 0;
+
+    --warning: 121 89 0;
+    --onWarning: 255 255 255;
+    --warningContainer: 255 222 160;
+    --onWarningContainer: 38 25 0;
+
+    --background: 255 248 245;
+    --onBackground: 34 26 21;
+    --surface: 255 248 245;
+    --onSurface: 34 26 21;
+    --surfaceVariant: 244 222 211;
+    --onSurfaceVariant: 82 68 60;
+
+    --outline: 132 116 106;
+    --outlineVariant: 215 195 183;
+
+    --surfaceContainerLowest: 255 255 255;
+    --surfaceContainerLow: 255 241 234;
+    --surfaceContainer: 252 235 226;
+    --surfaceContainerHigh: 246 229 220;
+    --surfaceContainerHighest: 240 223 215;
+
+    --inverseSurface: 56 46 41;
+    --inverseOnSurface: 254 237 229;
+    --inversePrimary: 255 183 134;
   }
+
+  .dark {
+    --primary: 255 183 134;
+    --onPrimary: 80 36 0;
+    --primaryContainer: 110 57 13;
+    --onPrimaryContainer: 255 220 198;
+
+    --secondary: 229 191 168;
+    --onSecondary: 66 43 27;
+    --secondaryContainer: 91 65 48;
+    --onSecondaryContainer: 255 220 198;
+
+    --tertiary: 201 202 147;
+    --onTertiary: 49 50 10;
+    --tertiaryContainer: 72 73 31;
+    --onTertiaryContainer: 229 230 173;
+
+    --error: 255 180 171;
+    --onError: 105 0 5;
+    --errorContainer: 147 0 10;
+    --onErrorContainer: 255 218 214;
+
+    --success: 150 215 131;
+    --onSuccess: 1 58 0;
+    --successContainer: 22 82 14;
+    --onSuccessContainer: 177 244 157;
+
+    --warning: 248 189 44;
+    --onWarning: 64 45 0;
+    --warningContainer: 92 67 0;
+    --onWarningContainer: 255 222 160;
+
+    --background: 25 18 13;
+    --onBackground: 240 223 215;
+    --surface: 25 18 13;
+    --onSurface: 240 223 215;
+    --surfaceVariant: 82 68 60;
+    --onSurfaceVariant: 215 195 183;
+
+    --outline: 159 141 131;
+    --outlineVariant: 82 68 60;
+
+    --surfaceContainerLowest: 20 13 8;
+    --surfaceContainerLow: 34 26 21;
+    --surfaceContainer: 38 30 25;
+    --surfaceContainerHigh: 49 40 35;
+    --surfaceContainerHighest: 61 51 45;
+
+    --inverseSurface: 240 223 215;
+    --inverseOnSurface: 56 46 41;
+    --inversePrimary: 139 80 35;
+  }
+
   html {
-    font-family: 'Inter', system-ui, sans-serif;
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply text-[#1a120b] antialiased;
+    @apply bg-background text-onSurface antialiased font-sans;
   }
   * {
     @apply box-border;
@@ -21,30 +120,54 @@
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-full bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-600 active:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500;
+    @apply inline-flex items-center justify-center rounded-full bg-primary px-6 py-2.5 text-sm font-medium text-onPrimary transition-colors hover:bg-primary/90 active:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-full border border-brand-500 bg-transparent px-6 py-2.5 text-sm font-medium text-brand-600 transition-colors hover:bg-brand-50 active:bg-brand-100 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center rounded-full border border-outline bg-transparent px-6 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/8 active:bg-primary/12 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-tonal {
+    @apply inline-flex items-center justify-center rounded-full bg-secondaryContainer px-6 py-2.5 text-sm font-medium text-onSecondaryContainer transition-colors hover:bg-secondaryContainer/80 active:bg-secondaryContainer/70 disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center rounded-full px-3 py-2 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-50 active:bg-brand-100;
+    @apply inline-flex items-center justify-center rounded-full px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/8 active:bg-primary/12;
   }
   .card {
-    @apply rounded-2xl bg-white p-4 shadow-sm;
+    @apply rounded-2xl bg-surfaceContainerLow p-4 shadow-elevation-1;
+  }
+  .card-outlined {
+    @apply rounded-2xl bg-surface border border-outlineVariant p-4;
+  }
+  .modal-surface {
+    @apply rounded-modal bg-surfaceContainerHigh shadow-elevation-3;
   }
   .input {
-    @apply w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm placeholder:text-gray-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 transition-colors;
+    @apply w-full rounded-xl border border-outline bg-surface px-4 py-3 text-sm text-onSurface placeholder:text-onSurfaceVariant/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors;
   }
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-xs font-semibold uppercase tracking-wider text-onSurfaceVariant mb-1;
   }
   .badge-done {
-    @apply inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700;
+    @apply inline-flex items-center rounded-full bg-successContainer px-2.5 py-0.5 text-xs font-medium text-onSuccessContainer;
   }
   .badge-pending {
-    @apply inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-700;
+    @apply inline-flex items-center rounded-full bg-warningContainer px-2.5 py-0.5 text-xs font-medium text-onWarningContainer;
   }
   .badge-missed {
-    @apply inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700;
+    @apply inline-flex items-center rounded-full bg-errorContainer px-2.5 py-0.5 text-xs font-medium text-onErrorContainer;
+  }
+  .badge-upcoming {
+    @apply inline-flex items-center rounded-full bg-secondaryContainer px-2.5 py-0.5 text-xs font-medium text-onSecondaryContainer;
+  }
+  .badge-role-admin {
+    @apply inline-flex items-center rounded-full bg-primaryContainer px-2 py-0.5 text-xs font-medium text-onPrimaryContainer;
+  }
+  .badge-role-manager {
+    @apply inline-flex items-center rounded-full bg-tertiaryContainer px-2 py-0.5 text-xs font-medium text-onTertiaryContainer;
+  }
+  .badge-role-employee {
+    @apply inline-flex items-center rounded-full bg-secondaryContainer px-2 py-0.5 text-xs font-medium text-onSecondaryContainer;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-lg border border-outlineVariant bg-surface px-2.5 py-1 text-xs font-medium text-onSurfaceVariant transition-colors;
   }
 }

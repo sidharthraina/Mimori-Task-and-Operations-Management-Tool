@@ -4,8 +4,10 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatTime, isOverdue, CATEGORY_ORDER, todayISO } from '@/lib/utils'
+import { isTaskDueOn } from '@/lib/recurrence'
 import type { Task, TaskLog, TaskCategory, User } from '@/types/database'
 import CameraCapture from '@/components/CameraCapture'
+import TaskFormFields, { emptyTaskForm, type TaskFormValue } from '@/components/admin/TaskFormFields'
 
 type EffectiveStatus = 'upcoming' | 'pending' | 'missed' | 'done'
 
@@ -38,13 +40,9 @@ function getWeekOffsetForDate(dateStr: string): number {
   return Math.round((targetMonday.getTime() - currentMonday.getTime()) / (7 * 24 * 60 * 60 * 1000))
 }
 
-const CATEGORIES: TaskCategory[] = ['Opening', 'Setup', 'Prep', 'Cleaning', 'Closing', 'Other']
-
-const EMPTY_TASK_FORM = {
-  title: '',
-  description: '',
-  category: 'Opening' as TaskCategory,
-  scheduled_time: '08:00',
+interface Roster {
+  id: string
+  name: string
 }
 
 interface Props {
@@ -53,6 +51,7 @@ interface Props {
   profile: User
   weekDates: string[]
   weekOffset?: number
+  roster?: Roster[]
 }
 
 function parseDayHeader(dateStr: string, today: string) {
@@ -66,15 +65,18 @@ function parseDayHeader(dateStr: string, today: string) {
   }
 }
 
-export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, profile, weekDates, weekOffset = 0 }: Props) {
+export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, profile, weekDates, weekOffset = 0, roster = [] }: Props) {
   const [tasks, setTasks] = useState(initialTasks)
   const [logs, setLogs] = useState(initialLogs)
   const [toggling, setToggling] = useState<string | null>(null)
   const [uploading, setUploading] = useState<string | null>(null)
   const [cameraTask, setCameraTask] = useState<Task | null>(null)
+  const [notesTask, setNotesTask] = useState<Task | null>(null)
+  const [notesDraft, setNotesDraft] = useState('')
+  const [savingNotes, setSavingNotes] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showTaskForm, setShowTaskForm] = useState(false)
-  const [taskForm, setTaskForm] = useState(EMPTY_TASK_FORM)
+  const [taskForm, setTaskForm] = useState<TaskFormValue>(emptyTaskForm())
   const [savingTask, setSavingTask] = useState(false)
 
   const router = useRouter()
@@ -118,7 +120,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
   useEffect(() => {
     const overdue = tasks.filter(task => {
       const log = logs.find(l => l.task_id === task.id && l.log_date === today)
-      return isOverdue(task.scheduled_time) && (!log || log.status === 'pending')
+      return isTaskDueOn(task, today) && isOverdue(task.scheduled_time) && (!log || log.status === 'pending')
     })
     overdue.forEach(task => {
       fetch('/api/notifications', {
@@ -175,6 +177,10 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
     setToggling(null)
   }
 
+  function patchTaskForm(patch: Partial<TaskFormValue>) {
+    setTaskForm(f => ({ ...f, ...patch }))
+  }
+
   async function handleAddTask(e: React.FormEvent) {
     e.preventDefault()
     setSavingTask(true)
@@ -188,7 +194,14 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
         category: taskForm.category,
         scheduled_time: taskForm.scheduled_time,
         frequency: 'daily',
-        active: true,
+        active: taskForm.active,
+        recurrence_unit: taskForm.recurrence_unit,
+        recurrence_interval: taskForm.recurrence_interval,
+        recurrence_weekdays: taskForm.recurrence_weekdays.length > 0 ? taskForm.recurrence_weekdays : null,
+        recurrence_anchor_date: taskForm.recurrence_anchor_date,
+        assigned_user_id: taskForm.assigned_user_id,
+        require_photo: taskForm.require_photo,
+        require_notes: taskForm.require_notes,
       })
       .select()
       .single()
@@ -196,7 +209,42 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
     setTasks(prev => [...prev, data as Task])
     setSavingTask(false)
     setShowTaskForm(false)
-    setTaskForm(EMPTY_TASK_FORM)
+    setTaskForm(emptyTaskForm())
+  }
+
+  function assigneeName(userId: string | null) {
+    if (!userId) return null
+    return roster.find(u => u.id === userId)?.name ?? null
+  }
+
+  async function handleSaveNotes(task: Task, text: string) {
+    setSavingNotes(true)
+    setError(null)
+    const supabase = createClient()
+    const existing = getLog(task.id, today)
+    const trimmed = text.trim()
+
+    if (existing) {
+      const { data, error: err } = await supabase
+        .from('task_logs')
+        .update({ notes: trimmed || null })
+        .eq('id', existing.id)
+        .select()
+        .single()
+      if (err) { setError(err.message); setSavingNotes(false); return }
+      setLogs(prev => prev.map(l => l.id === existing.id ? data as TaskLog : l))
+    } else {
+      const { data, error: err } = await supabase
+        .from('task_logs')
+        .insert({ task_id: task.id, log_date: today, status: 'pending', notes: trimmed || null })
+        .select()
+        .single()
+      if (err) { setError(err.message); setSavingNotes(false); return }
+      setLogs(prev => [...prev, data as TaskLog])
+    }
+
+    setSavingNotes(false)
+    setNotesTask(null)
   }
 
   async function handlePhotoUpload(task: Task, file: File) {
@@ -250,27 +298,31 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
     setUploading(null)
   }
 
+  // Tasks due on the selected date (recurrence-aware)
+  const dueSelectedTasks = useMemo(() => tasks.filter(t => isTaskDueOn(t, selectedDate)), [tasks, selectedDate])
+  const dueTodayTasks = useMemo(() => tasks.filter(t => isTaskDueOn(t, today)), [tasks, today])
+
   // Status counters driven by selectedDate
   const selectedStatuses = useMemo(() =>
-    tasks.map(t => computeDateStatus(t, getLog(t.id, selectedDate), selectedDate, today)),
+    dueSelectedTasks.map(t => computeDateStatus(t, getLog(t.id, selectedDate), selectedDate, today)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tasks, logs, selectedDate, today]
+    [dueSelectedTasks, logs, selectedDate, today]
   )
   const doneCount     = selectedStatuses.filter(s => s === 'done').length
   const upcomingCount = selectedStatuses.filter(s => s === 'upcoming').length
   const pendingCount  = selectedStatuses.filter(s => s === 'pending').length
   const missedCount   = selectedStatuses.filter(s => s === 'missed').length
   // Progress bar always reflects today
-  const doneTodayCount = tasks.filter(t => getLog(t.id, today)?.status === 'done').length
-  const pct = tasks.length > 0 ? Math.round((doneTodayCount / tasks.length) * 100) : 0
+  const doneTodayCount = dueTodayTasks.filter(t => getLog(t.id, today)?.status === 'done').length
+  const pct = dueTodayTasks.length > 0 ? Math.round((doneTodayCount / dueTodayTasks.length) * 100) : 0
 
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold text-dark-900">Weekly Tasks</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{weekDates[0]} – {weekDates[6]}</p>
+          <h1 className="text-xl font-bold text-onSurface">Weekly Tasks</h1>
+          <p className="text-xs text-onSurfaceVariant/70 mt-0.5">{weekDates[0]} – {weekDates[6]}</p>
         </div>
         {canAddTasks && isCurrentWeek && (
           <button onClick={() => setShowTaskForm(true)} className="btn-primary text-sm">
@@ -279,29 +331,29 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
         )}
       </div>
 
-      {/* Status counters */}
+      {/* Status counters — card base, status color reserved for the count itself */}
       {tasks.length > 0 && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <div className="rounded-2xl p-4 bg-gray-50">
-              <p className="text-xs font-medium text-gray-500">Total Tasks</p>
-              <p className="text-2xl font-bold mt-1 text-gray-900">{tasks.length}</p>
+            <div className="card">
+              <p className="text-xs font-medium text-onSurfaceVariant">Total Tasks</p>
+              <p className="text-2xl font-bold mt-1 text-onSurface">{dueSelectedTasks.length}</p>
             </div>
-            <div className="rounded-2xl p-4 bg-gray-100">
-              <p className="text-xs font-medium text-gray-500">Upcoming</p>
-              <p className="text-2xl font-bold mt-1 text-gray-600">{upcomingCount}</p>
+            <div className="card">
+              <p className="text-xs font-medium text-onSurfaceVariant">Upcoming</p>
+              <p className="text-2xl font-bold mt-1 text-onSurfaceVariant">{upcomingCount}</p>
             </div>
-            <div className="rounded-2xl p-4 bg-green-50">
-              <p className="text-xs font-medium text-green-600">Completed</p>
-              <p className="text-2xl font-bold mt-1 text-green-600">{doneCount}</p>
+            <div className="card">
+              <p className="text-xs font-medium text-onSurfaceVariant">Completed</p>
+              <p className="text-2xl font-bold mt-1 text-success">{doneCount}</p>
             </div>
-            <div className="rounded-2xl p-4 bg-yellow-50">
-              <p className="text-xs font-medium text-yellow-600">Pending</p>
-              <p className="text-2xl font-bold mt-1 text-yellow-600">{pendingCount}</p>
+            <div className="card">
+              <p className="text-xs font-medium text-onSurfaceVariant">Pending</p>
+              <p className="text-2xl font-bold mt-1 text-warning">{pendingCount}</p>
             </div>
-            <div className="rounded-2xl p-4 bg-red-50">
-              <p className="text-xs font-medium text-red-600">Missed</p>
-              <p className="text-2xl font-bold mt-1 text-red-600">{missedCount}</p>
+            <div className="card">
+              <p className="text-xs font-medium text-onSurfaceVariant">Missed</p>
+              <p className="text-2xl font-bold mt-1 text-error">{missedCount}</p>
             </div>
           </div>
 
@@ -321,7 +373,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
               {selectedDate !== today && (
                 <button
                   onClick={() => handleDateChange(today)}
-                  className="btn-ghost text-xs text-brand-600 pb-2"
+                  className="btn-ghost text-xs pb-2"
                 >
                   Back to today
                 </button>
@@ -335,12 +387,12 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
       {tasks.length > 0 && isCurrentWeek && (
         <div className="card py-3 px-4">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-medium text-gray-600">Today&apos;s progress</span>
-            <span className="text-xs font-bold text-brand-600">{doneTodayCount}/{tasks.length}</span>
+            <span className="text-xs font-medium text-onSurfaceVariant">Today&apos;s progress</span>
+            <span className="text-xs font-bold text-primary">{doneTodayCount}/{tasks.length}</span>
           </div>
-          <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+          <div className="h-2 rounded-full bg-surfaceContainerHigh overflow-hidden">
             <div
-              className="h-full rounded-full bg-brand-500 transition-all duration-300"
+              className="h-full rounded-full bg-primary transition-all duration-300"
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -348,7 +400,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
       )}
 
       {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+        <div className="text-sm text-onErrorContainer bg-errorContainer rounded-xl px-4 py-3">
           {error}
         </div>
       )}
@@ -362,46 +414,11 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
 
       {/* Add Task Modal */}
       {showTaskForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="card w-full max-w-lg shadow-xl">
-            <h2 className="text-lg font-bold mb-4">New Task</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="modal-surface w-full max-w-lg p-5 sm:p-6 my-8">
+            <h2 className="text-lg font-bold mb-4 text-onSurface">New Task</h2>
             <form onSubmit={handleAddTask} className="space-y-4">
-              <div>
-                <label className="label">Title *</label>
-                <input
-                  className="input" required
-                  value={taskForm.title}
-                  onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="label">Description</label>
-                <textarea
-                  className="input resize-none" rows={2}
-                  value={taskForm.description}
-                  onChange={e => setTaskForm(f => ({ ...f, description: e.target.value }))}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Category *</label>
-                  <select
-                    className="input"
-                    value={taskForm.category}
-                    onChange={e => setTaskForm(f => ({ ...f, category: e.target.value as TaskCategory }))}
-                  >
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Scheduled time *</label>
-                  <input
-                    type="time" className="input" required
-                    value={taskForm.scheduled_time}
-                    onChange={e => setTaskForm(f => ({ ...f, scheduled_time: e.target.value }))}
-                  />
-                </div>
-              </div>
+              <TaskFormFields value={taskForm} onChange={patchTaskForm} roster={roster} />
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowTaskForm(false)} className="btn-secondary flex-1">
                   Cancel
@@ -415,29 +432,57 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
         </div>
       )}
 
+      {/* Notes Modal */}
+      {notesTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4">
+          <div className="modal-surface w-full max-w-md p-5 sm:p-6">
+            <h2 className="text-lg font-bold mb-1 text-onSurface">Notes</h2>
+            <p className="text-xs text-onSurfaceVariant/70 mb-4">{notesTask.title}</p>
+            <textarea
+              className="input resize-none" rows={4}
+              value={notesDraft}
+              onChange={e => setNotesDraft(e.target.value)}
+              placeholder="Add a note…"
+              autoFocus
+            />
+            <div className="flex gap-3 pt-3">
+              <button type="button" onClick={() => setNotesTask(null)} className="btn-secondary flex-1">Cancel</button>
+              <button
+                type="button"
+                disabled={savingNotes}
+                onClick={() => handleSaveNotes(notesTask, notesDraft)}
+                className="btn-primary flex-1"
+              >
+                {savingNotes ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Weekly grid */}
       <div className="card p-0 overflow-x-auto">
         <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
               {/* Task column header */}
-              <th className="sticky left-0 z-10 bg-white px-4 py-3 text-left border-b border-gray-100 w-52 min-w-[180px]">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Task</span>
+              <th className="sticky left-0 z-10 bg-surfaceContainerLowest px-4 py-3 text-left border-b border-outlineVariant w-52 min-w-[180px]">
+                <span className="text-xs font-semibold text-onSurfaceVariant/70 uppercase tracking-wider">Task</span>
               </th>
               {weekDates.map(dateStr => {
                 const { dayName, dayDate, isToday } = parseDayHeader(dateStr, today)
                 return (
                   <th key={dateStr} className={cn(
-                    'py-3 px-2 text-center border-b border-gray-100 min-w-[80px]',
-                    isToday && 'bg-brand-50'
+                    'py-3 px-2 text-center border-b border-outlineVariant min-w-[80px]',
+                    isToday && 'bg-primaryContainer/40'
                   )}>
-                    <div className={cn('text-xs font-semibold uppercase tracking-wide', isToday ? 'text-brand-600' : 'text-gray-400')}>
+                    <div className={cn('text-xs font-semibold uppercase tracking-wide', isToday ? 'text-primary' : 'text-onSurfaceVariant/70')}>
                       {dayName}
                     </div>
-                    <div className={cn('text-sm font-bold leading-tight', isToday ? 'text-brand-700' : 'text-gray-700')}>
+                    <div className={cn('text-sm font-bold leading-tight', isToday ? 'text-onPrimaryContainer' : 'text-onSurface')}>
                       {dayDate}
                     </div>
-                    {isToday && <div className="w-1.5 h-1.5 rounded-full bg-brand-500 mx-auto mt-1" />}
+                    {isToday && <div className="w-1.5 h-1.5 rounded-full bg-primary mx-auto mt-1" />}
                   </th>
                 )
               })}
@@ -449,9 +494,9 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
               <tr key={`cat-${category}`}>
                 <td
                   colSpan={8}
-                  className="sticky left-0 bg-gray-50/80 px-4 py-2 border-b border-t border-gray-100"
+                  className="sticky left-0 bg-surfaceContainer/80 px-4 py-2 border-b border-t border-outlineVariant"
                 >
-                  <span className="text-xs font-bold uppercase tracking-widest text-brand-500">
+                  <span className="text-xs font-bold uppercase tracking-widest text-primary">
                     {category}
                   </span>
                 </td>
@@ -459,18 +504,24 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
 
               // Task rows
               ...catTasks.map(task => (
-                <tr key={task.id} className="group hover:bg-gray-50/40 transition-colors">
+                <tr key={task.id} className="group hover:bg-surfaceContainer/40 transition-colors">
                   {/* Task name + trigger time */}
-                  <td className="sticky left-0 z-10 bg-white group-hover:bg-gray-50/40 px-4 py-3 border-b border-gray-50 transition-colors">
-                    <div className="font-medium text-gray-900 leading-snug">{task.title}</div>
-                    <div className="text-xs text-gray-400 mt-0.5 font-mono">
+                  <td className="sticky left-0 z-10 bg-surfaceContainerLowest group-hover:bg-surfaceContainer/40 px-4 py-3 border-b border-outlineVariant transition-colors">
+                    <div className="font-medium text-onSurface leading-snug">{task.title}</div>
+                    <div className="text-xs text-onSurfaceVariant/70 mt-0.5 font-mono">
                       {formatTime(task.scheduled_time)}
                     </div>
+                    {assigneeName(task.assigned_user_id) && (
+                      <div className="text-xs text-primary mt-1">
+                        → {assigneeName(task.assigned_user_id)}
+                      </div>
+                    )}
                   </td>
 
                   {/* Date cells */}
                   {weekDates.map(dateStr => {
                     const { isToday: cellIsToday, isFuture, isPast } = parseDayHeader(dateStr, today)
+                    const dueOnDate = isTaskDueOn(task, dateStr)
                     const log = getLog(task.id, dateStr)
                     const isDone = log?.status === 'done'
                     const isMissed = log?.status === 'missed'
@@ -478,35 +529,48 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
                     const overdue = cellIsToday && isPending && isOverdue(task.scheduled_time)
                     const isLoading = toggling === `${task.id}-${dateStr}`
                     const isUploadingThis = uploading === task.id
-                    const canClick = cellIsToday && !isMissed && !isReadOnly
-                    const canUpload = cellIsToday && !isReadOnly && !isMissed
+                    const canClick = cellIsToday && dueOnDate && !isMissed && !isReadOnly
+                    const canUpload = cellIsToday && dueOnDate && !isReadOnly && !isMissed
+
+                    if (!dueOnDate && !log) {
+                      return (
+                        <td
+                          key={dateStr}
+                          className={cn('py-2 px-2 text-center border-b border-outlineVariant', cellIsToday && 'bg-primaryContainer/20')}
+                        >
+                          <div className="py-1.5">
+                            <span className="text-outlineVariant select-none" title="Not scheduled this day">—</span>
+                          </div>
+                        </td>
+                      )
+                    }
 
                     return (
                       <td
                         key={dateStr}
                         className={cn(
-                          'py-2 px-2 text-center border-b border-gray-50 transition-colors',
-                          cellIsToday && 'bg-brand-50/30',
+                          'py-2 px-2 text-center border-b border-outlineVariant transition-colors',
+                          cellIsToday && 'bg-primaryContainer/20',
                         )}
                       >
                         <div className="flex flex-col items-center">
                           {/* Checkbox / status indicator */}
                           <div className="py-1.5">
                             {isFuture ? (
-                              <span className="text-gray-200 select-none">—</span>
+                              <span className="text-outlineVariant select-none">—</span>
                             ) : isDone ? (
-                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-500">
-                                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-success">
+                                <svg className="w-3.5 h-3.5 text-onSuccess" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                 </svg>
                               </span>
                             ) : isMissed ? (
-                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-red-100 border-2 border-red-300">
-                                <span className="text-red-500 text-xs font-bold">✕</span>
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-errorContainer border-2 border-error/40">
+                                <span className="text-onErrorContainer text-xs font-bold">✕</span>
                               </span>
                             ) : isPast ? (
-                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full border-2 border-gray-200 bg-gray-50">
-                                <span className="text-gray-300 text-xs">—</span>
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full border-2 border-outlineVariant bg-surfaceContainerLow">
+                                <span className="text-onSurfaceVariant/40 text-xs">—</span>
                               </span>
                             ) : (
                               <button
@@ -515,24 +579,39 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
                                 aria-label={`Mark "${task.title}" done`}
                                 className={cn(
                                   'inline-flex items-center justify-center w-7 h-7 rounded-full border-2 transition-all',
-                                  canClick && 'hover:border-brand-400 hover:bg-brand-50',
+                                  canClick && 'hover:border-primary/60 hover:bg-primary/8',
                                   !canClick && 'cursor-default',
                                   overdue
-                                    ? 'border-red-500 bg-red-50 ring-2 ring-red-300 ring-offset-1 animate-pulse'
-                                    : 'border-gray-300 bg-white',
+                                    ? 'border-error bg-errorContainer ring-2 ring-error/40 ring-offset-1 animate-pulse'
+                                    : 'border-outline bg-surface',
                                   isLoading && 'opacity-40',
                                 )}
                               />
                             )}
                           </div>
 
-                          {/* Divider + photo (today only) */}
-                          {cellIsToday && !isFuture && (canUpload || !!log?.photo_url) && (
+                          {/* Divider + photo/notes (today only) */}
+                          {cellIsToday && !isFuture && (canUpload || !!log?.photo_url || !!log?.notes) && (
                             <>
-                              <div className="w-full border-t border-gray-200" />
-                              <div className="py-1.5">
+                              <div className="w-full border-t border-outlineVariant" />
+                              <div className="py-1.5 flex items-center justify-center gap-2">
+                                {canUpload && (
+                                  <button
+                                    type="button"
+                                    title={log?.notes ? 'Edit note' : 'Add note'}
+                                    onClick={() => { setNotesTask(task); setNotesDraft(log?.notes ?? '') }}
+                                    className={cn(
+                                      'transition-colors',
+                                      log?.notes ? 'text-tertiary' : 'text-onSurfaceVariant hover:text-primary'
+                                    )}
+                                  >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                  </button>
+                                )}
                                 {log?.photo_url ? (
-                                  <span title="Photo attached" className="text-green-500">
+                                  <span title="Photo attached" className="text-success">
                                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                       <path fillRule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
                                     </svg>
@@ -544,7 +623,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
                                     onClick={() => setCameraTask(task)}
                                     disabled={isUploadingThis}
                                     className={cn(
-                                      'cursor-pointer text-gray-800 hover:text-brand-600 transition-colors',
+                                      'cursor-pointer text-onSurfaceVariant hover:text-primary transition-colors',
                                       isUploadingThis && 'opacity-40 pointer-events-none'
                                     )}
                                   >
@@ -568,7 +647,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
         </table>
 
         {tasks.length === 0 && (
-          <div className="text-center py-16 text-gray-400">
+          <div className="text-center py-16 text-onSurfaceVariant/70">
             <p className="text-4xl mb-2">☕</p>
             <p className="font-medium">No tasks yet</p>
             {canAddTasks && <p className="text-sm mt-1">Click &ldquo;Add Task&rdquo; to create the first one</p>}
@@ -577,25 +656,25 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-xs text-gray-400 flex-wrap">
+      <div className="flex items-center gap-4 text-xs text-onSurfaceVariant/70 flex-wrap">
         <span className="flex items-center gap-1.5">
-          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500">
-            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-success">
+            <svg className="w-2.5 h-2.5 text-onSuccess" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
           </span>
           Done
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-100 border-2 border-red-300">
-            <span className="text-red-500 text-[8px] font-bold">✕</span>
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-errorContainer border-2 border-error/40">
+            <span className="text-onErrorContainer text-[8px] font-bold">✕</span>
           </span>
           Missed
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-flex w-4 h-4 rounded-full border-2 border-red-500 bg-red-50 ring-1 ring-red-300" />
+          <span className="inline-flex w-4 h-4 rounded-full border-2 border-error bg-errorContainer ring-1 ring-error/30" />
           Overdue (30+ min)
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-flex w-4 h-4 rounded-full border-2 border-gray-300 bg-white" />
+          <span className="inline-flex w-4 h-4 rounded-full border-2 border-outline bg-surface" />
           Pending
         </span>
       </div>

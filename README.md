@@ -1,6 +1,6 @@
 # Mimori — Task & Operations Management Tool
 
-> A whitelabeled, multi-location task management platform for hospitality and retail operations teams.
+> A whitelabeled, multi-location task management platform for any business that runs on recurring checklists.
 
 ---
 
@@ -8,16 +8,18 @@
 
 ### The Problem
 
-Multi-location food & beverage and retail businesses run on daily checklists — opening procedures, prep tasks, cleaning routines, closing checks. Today, most teams manage these through paper sheets, WhatsApp messages, or generic to-do apps that weren't built for operational accountability. The result: tasks slip through the cracks, no one knows who did what, managers find out about missed steps hours too late, and scaling to a second or third location adds more chaos rather than more control.
+Any business with a physical location and a routine — cafés, gyms, salons, clinics, retail stores, warehouses — runs on recurring checklists: opening procedures, equipment checks, cleaning routines, closing tasks. Most teams still manage these through paper sheets, WhatsApp messages, or generic to-do apps that weren't built for operational accountability. The result: tasks slip through the cracks, no one knows who did what, managers find out about missed steps hours too late, and opening a second or third location adds more chaos rather than more control.
 
 ### What Mimori Solves
 
-Mimori gives operations teams a single, structured platform to define, assign, and track recurring tasks across one or multiple store locations — with real-time visibility, accountability, and automated alerts for anything missed.
+Mimori gives operations teams a single, structured platform to define, assign, and track recurring tasks across one or multiple locations — with real-time visibility, photo-verified accountability, and automated escalation for anything missed.
 
 **Who it's for:**
-- **Owners / Operators** who want a live view of task completion across all their locations, without needing to be on-site.
-- **Store Managers** who need to monitor their team's daily checklist progress and catch problems early.
-- **Frontline Staff** who need a clear, simple view of what's on their plate today — no clutter, no confusion.
+- **Owners / Operators** — gym owners, café owners, small retail chains, or anyone running multiple locations — who want a live view of task completion without needing to be on-site.
+- **Store / Location Managers** who need to monitor their team's daily checklist progress and catch problems before they escalate.
+- **Frontline Staff** who need a clear, simple view of what's on their plate today — no clutter, no training required.
+
+It's built generically enough that "store" can mean a café, a gym floor, a clinic, a warehouse bay, or any other operating unit your business tracks — see [Whitelabeling](#whitelabeling) below.
 
 ---
 
@@ -25,20 +27,23 @@ Mimori gives operations teams a single, structured platform to define, assign, a
 
 | Feature | Description |
 |---|---|
-| **Per-store task checklists** | Each location runs its own daily checklist. Tasks are categorised (Opening, Setup, Prep, Cleaning, Closing) and scheduled by time. |
-| **Multi-location management** | Admins manage all stores from one dashboard. Staff only see the store(s) they're assigned to. Switching between locations is a one-tap action. |
+| **Per-location task checklists** | Each location runs its own checklist. Tasks are categorised (Opening, Setup, Prep, Cleaning, Closing) and scheduled by time. |
+| **Flexible recurrence** | Tasks repeat every N days or every N weeks, optionally restricted to specific weekdays — not just "daily." A deep-clean every 3 days, a weigh-in every Monday and Thursday, whatever the operation needs. |
+| **Multi-location management** | Admins manage all locations from one dashboard. Staff only see the location(s) they're assigned to. Switching between locations is a one-tap action, with a visible, theme-aware color cue so it's never ambiguous which location you're looking at. |
 | **Role-based access** | Three roles — Admin, Manager, Staff — with granular permissions. Admins control who can access what. |
 | **Photo proof of completion** | Staff can attach a photo directly from their device camera when marking a task done. Creates an audit trail without extra process. |
-| **Missed task detection** | Automated checks every 20 minutes flag tasks not completed within their window. Admins receive an email alert before it becomes a problem. |
+| **Configurable escalation chains** | Instead of a flat "email all admins" alert, define an ordered chain per location: notify the assignee, then a role, then a specific person — each after its own delay — triggered by a missed task or one completed without required proof. |
+| **Missed task detection** | Automated checks every 20 minutes flag tasks not completed within their window and run them through the escalation chain. |
 | **Real-time admin dashboard** | Live view of today's task status (Upcoming / Pending / Completed / Missed) updated the moment a staff member acts. Filterable by date and status. |
 | **End-of-day report** | A nightly email summary with full breakdown: completion rates, categories, who completed what, and all missed tasks — delivered to the owner's inbox. |
-| **Store theming** | Each location has a unique colour. The app's interface visually reflects the active store, so switching locations is immediately obvious at a glance. |
+| **Light & dark mode** | A full Material Design 3 color system generated from your brand color, in both light and dark, switchable per user (or left on "system"). |
+| **Live whitelabel branding** | Business name and logo are editable from inside the app — no redeploy needed to rebrand. |
 
 ---
 
 ### Key Design Decisions
 
-- **Whitelabel-ready** — The business name, branding, and store colours are fully configurable. The tool can be deployed as-is for any business, not just cafés.
+- **Whitelabel-ready** — Business name, logo, brand color, and location colors are fully configurable, most of it live from the app itself. Deploy it as-is for any business, not just one built around cafés.
 - **Mobile-first** — Staff primarily use phones and tablets on the floor. Every screen is responsive, with a hamburger nav on small viewports and task cards designed for touch.
 - **No training required** — The staff checklist is intentionally minimal: one page, grouped by category, tap to complete. There's no learning curve.
 - **Accountability without surveillance** — Photo uploads and completion timestamps create a verifiable record without micromanagement culture.
@@ -47,191 +52,9 @@ Mimori gives operations teams a single, structured platform to define, assign, a
 
 ## Technical Architecture
 
-### System Overview
+Mimori is a Next.js 14 (App Router) app on Vercel, backed by Supabase (Postgres, Auth, Storage, Realtime, Edge Functions), with scheduled checks run via GitHub Actions and email delivered through Resend. The UI implements a full Material Design 3 token system with light/dark theming.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                        Browser / Device                  │
-│                  Next.js 14 (App Router)                 │
-│          Server Components + Client Components           │
-└──────────────────────────┬──────────────────────────────┘
-                           │  HTTPS
-            ┌──────────────┴──────────────┐
-            │                             │
-     ┌──────▼──────┐             ┌────────▼────────┐
-     │   Vercel    │             │    Supabase      │
-     │  (Hosting)  │             │                  │
-     │  Next.js    │◄────────────┤  PostgreSQL DB   │
-     │  API Routes │  REST/SDK   │  Auth (JWT)      │
-     └─────────────┘             │  Storage (S3)    │
-                                 │  Edge Functions  │
-                                 │  Realtime (WS)   │
-                                 └────────┬─────────┘
-                                          │
-                                 ┌────────▼─────────┐
-                                 │  GitHub Actions   │
-                                 │  (Cron Scheduler) │
-                                 │  → Edge Functions │
-                                 └──────────────────┘
-                                          │
-                                 ┌────────▼─────────┐
-                                 │  Resend           │
-                                 │  (Transactional   │
-                                 │   Email)          │
-                                 └──────────────────┘
-```
-
-### Technology Stack
-
-| Layer | Technology | Purpose |
-|---|---|---|
-| Frontend | Next.js 14 (App Router), TypeScript | SSR + client interactivity |
-| Styling | Tailwind CSS, Material Design 3 | UI component system |
-| Auth | Supabase Auth (JWT + cookies) | Session management, Google OAuth |
-| Database | Supabase PostgreSQL | Relational data + RLS |
-| File Storage | Supabase Storage (S3-compatible) | Task photo uploads |
-| Realtime | Supabase Realtime (WebSocket) | Live admin dashboard updates |
-| API | Next.js API Routes (Edge-compatible) | Server-side privileged operations |
-| Scheduled Jobs | GitHub Actions → Supabase Edge Functions (Deno) | Missed task checks, log purges |
-| Email | Resend | Missed task alerts, EOD reports |
-| Hosting | Vercel | Serverless deployment, CDN |
-
----
-
-### Data Model
-
-```
-stores
-  id, name, address, color, is_default, created_at, updated_at
-
-users (mirrors auth.users)
-  id, name, email, role (admin|manager|employee), active
-  can_add_tasks, notif_individual_missed, notif_batched_missed
-  eod_report_time, eod_report_email
-
-user_store_assignments
-  user_id → users.id
-  store_id → stores.id
-  (many-to-many: one user can be assigned to multiple stores)
-
-tasks
-  id, store_id → stores.id, title, description
-  category (Opening|Setup|Prep|Cleaning|Closing|Other)
-  scheduled_time, frequency (daily|weekly), active
-
-task_logs
-  id, task_id → tasks.id, log_date, status (done|pending|missed)
-  completed_by → users.id, completed_at, photo_url
-
-notifications
-  id, store_id → stores.id, task_log_id → task_logs.id
-  message, is_read, created_at
-```
-
-**Key constraints:**
-- `stores.is_default` enforced as unique via a partial index (`WHERE is_default = true`) — only one default store at a time.
-- `tasks.store_id` is `ON DELETE RESTRICT` — a store with tasks cannot be deleted without first removing or reassigning its tasks.
-- `user_store_assignments` cascades on both sides — deleting a store or user cleans up assignments automatically.
-
----
-
-### Authentication & Authorisation
-
-**Session flow:**
-1. User signs in via email/password or Google OAuth.
-2. Supabase issues a JWT stored in an HTTP-only cookie (managed by `@supabase/ssr`).
-3. `src/middleware.ts` intercepts every request, refreshes the session token if needed, and enforces route-level access (unauthenticated → `/login`; authenticated → role-appropriate page).
-4. Server components call `supabase.auth.getUser()` to fetch the verified session and load the user's profile and store assignments.
-
-**Row Level Security (RLS):**
-All tables have RLS enabled. Key policies:
-- `stores`: Admins read all rows; staff read only stores they have an entry in `user_store_assignments`.
-- `tasks`: Read access scoped to the user's assigned stores.
-- `task_logs`: Staff can insert/update their own logs; admins can read all.
-- `notifications`: Admin-only read/write.
-
-**Privileged operations** (creating/deleting auth users) are handled by Next.js API Routes that verify admin role server-side before calling Supabase with the service role key. The service role key never reaches the browser.
-
----
-
-### Active Store & Multi-location Routing
-
-The currently active store is persisted in a browser cookie (`active-store-id`, 30-day expiry). On every page render:
-
-1. The dashboard layout (server component) reads the cookie.
-2. It resolves the active store: `cookie → is_default → stores[0]`.
-3. All data queries (tasks, logs, notifications) are filtered by `activeStore.id`.
-4. The resolved store's hex colour is used to compute an 8% tint for the page background.
-5. Client-side store switching sets the cookie and calls `router.refresh()` to trigger a full server re-render with the new store context.
-
----
-
-### Scheduled Operations
-
-Two Deno Edge Functions handle background work, invoked by GitHub Actions cron:
-
-| Function | Schedule | Logic |
-|---|---|---|
-| `check-missed-tasks` | Every 20 min, Mon–Sat, 06:00–18:00 UTC | Finds active tasks whose `scheduled_time + 30 min` has passed with no `done` log for today. Marks them `missed`, writes a notification, and emails the admin (individually or batched, per preference). |
-| `purge-old-logs` | Daily, 03:00 UTC | Deletes `task_logs` and their associated Storage objects (photos) older than 90 days. Keeps the database lean. |
-
-Both functions are protected by a shared `FUNCTION_SECRET` header. GitHub Actions stores this as a repository secret and passes it on each invocation.
-
----
-
-### Frontend Architecture
-
-```
-src/
-├── app/
-│   ├── (auth)/login/           # Public login page (Google OAuth + email)
-│   ├── (dashboard)/
-│   │   ├── layout.tsx          # Auth guard, store resolution, nav, tinted background
-│   │   ├── tasks/              # Staff checklist (server-rendered, client toggle)
-│   │   ├── admin/
-│   │   │   ├── page.tsx        # Real-time task dashboard (WebSocket subscription)
-│   │   │   ├── tasks/          # Task master list management
-│   │   │   ├── users/          # Staff management + store assignments
-│   │   │   └── stores/         # Store management (create, edit, theme, default)
-│   │   └── employee/           # (alias route)
-│   ├── api/
-│   │   ├── admin/users/        # POST: create user, DELETE: remove user (service role)
-│   │   └── notifications/      # PATCH: mark all read
-│   └── layout.tsx              # Root layout (fonts, metadata)
-├── components/
-│   ├── ui/DashboardNav.tsx     # Sticky header, store switcher, profile modal, mobile menu
-│   ├── admin/
-│   │   ├── AdminDashboard.tsx  # Filterable task log table + realtime subscription
-│   │   ├── AdminTasksClient.tsx
-│   │   ├── AdminUsersClient.tsx
-│   │   └── AdminStoresClient.tsx
-│   └── employee/
-│       ├── EmployeeChecklist.tsx  # Today's grouped task list with toggle + photo
-│       └── PhotoUpload.tsx        # Camera capture / file picker
-├── lib/
-│   ├── supabase/client.ts      # Browser client (singleton)
-│   ├── supabase/server.ts      # Server client (cookie-aware, per-request)
-│   └── utils.ts                # formatTime, hexToTint, isOverdue, CATEGORY_ORDER
-├── types/database.ts           # TypeScript interfaces for all DB entities
-└── middleware.ts               # JWT refresh + auth redirect
-```
-
-**Rendering strategy:**
-- Pages are server components by default — data fetched on the server, no client waterfall.
-- Interactive client components (`'use client'`) handle toggles, modals, real-time updates, and form state.
-- The admin dashboard uses a Supabase Realtime WebSocket subscription to push task log changes to all connected admins instantly, without polling.
-
----
-
-### Design System
-
-The UI follows **Material Design 3** guidelines (shape, elevation, component patterns) with a custom brand colour palette:
-
-- **Buttons**: `rounded-full` stadium shape — filled (primary), outlined, text
-- **Cards**: M3 Elevated style — `rounded-2xl`, `shadow-sm`, no border
-- **Dialogs**: Extra Large shape (`rounded-[28px]`), 32% black scrim
-- **Switches**: 52×32dp track, thumb grows from 16dp (off) to 24dp (on)
-- **Typography**: Inter (body), Permanent Marker (brand wordmark), Roboto (UI labels)
+For the full technical deep-dive — data model, recurrence engine, escalation matrix, auth/RLS, scheduled jobs, frontend structure, and the design system — see **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
 
 ---
 
@@ -262,6 +85,9 @@ cp .env.example .env.local
 # supabase/migrations/004_add_can_add_tasks.sql
 # supabase/migrations/005_add_notifications_store.sql
 # supabase/migrations/006_add_stores.sql
+# supabase/migrations/007_recurrence_and_assignment.sql
+# supabase/migrations/008_escalation_matrix.sql
+# supabase/migrations/009_whitelabel_branding.sql
 
 # 4. Start dev server
 npm run dev
@@ -286,6 +112,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 1. In Supabase Dashboard → Storage, create a private bucket named `task-photos`.
 2. Run the Storage RLS policy block at the bottom of `001_initial_schema.sql`.
+3. The `branding` bucket (for uploaded logos) is created automatically by `009_whitelabel_branding.sql` — see that file if your Supabase plan doesn't permit the automatic `storage.buckets` insert.
 
 ---
 
@@ -308,7 +135,7 @@ Or connect the GitHub repo in the Vercel dashboard for automatic deploys on push
 | `RESEND_API_KEY` | [resend.com](https://resend.com) → API Keys |
 | `EMAIL_FROM` | Your verified sender address in Resend |
 | `ADMIN_EMAIL` | Owner's email for missed-task alerts |
-| `NEXT_PUBLIC_BUSINESS_NAME` | Your business name (e.g. `Mimori`) |
+| `NEXT_PUBLIC_BUSINESS_NAME` | Your business name (initial seed only — see [Whitelabeling](#whitelabeling)) |
 
 ---
 
@@ -343,7 +170,7 @@ supabase secrets set ADMIN_EMAIL=owner@yourdomain.com
 
 | Workflow | Cron (UTC) | Purpose |
 |---|---|---|
-| `check-missed-tasks.yml` | Every 20 min, Mon–Sat, 06:00–18:00 | Flag overdue tasks, alert admin |
+| `check-missed-tasks.yml` | Every 20 min, Mon–Sat, 06:00–18:00 | Flag overdue tasks, run the escalation chain |
 | `purge-old-logs.yml` | Daily 03:00 | Delete logs and photos older than 90 days |
 
 > **Timezone note:** GitHub Actions cron runs in UTC. Adjust the hours to match your local operating hours. E.g. for UTC+5:30 (IST), shift check window to 00:30–12:30 UTC.
@@ -361,22 +188,32 @@ supabase secrets set ADMIN_EMAIL=owner@yourdomain.com
 | Manage task master list | — | — | ✓ |
 | View admin dashboard (all logs) | — | ✓ | ✓ |
 | Manage staff accounts | — | — | ✓ |
-| Manage stores | — | — | ✓ |
-| Receive missed-task emails | — | — | ✓ |
-| Switch between stores | if assigned to 2+ | if assigned to 2+ | always |
+| Manage locations | — | — | ✓ |
+| Manage escalation chains | — | ✓ (read) | ✓ |
+| Receive missed-task / escalation emails | — | if in a tier | if in a tier |
+| Switch between locations | if assigned to 2+ | if assigned to 2+ | always |
 
 ---
 
 ## Whitelabeling
 
-To deploy Mimori for a different business:
+Mimori is designed to be forked and deployed for any business — the word "store" throughout the code and UI is just the generic name for whatever operating unit you track (a café, a gym, a clinic, a warehouse).
 
-1. Set `NEXT_PUBLIC_BUSINESS_NAME` in your environment variables.
-2. Update the brand colour palette in `tailwind.config.ts` (`brand-*` tokens).
-3. Update `EMAIL_FROM` and `ADMIN_EMAIL` to the new business's domain.
-4. Replace or configure the store colour palette in `AdminStoresClient.tsx`.
+1. **Business name & logo** — as an admin, open your profile (avatar, top right) → **Settings** and set your business name and upload a logo. This replaces the "Mimori" wordmark in the nav and login page, live, with no redeploy. Leave it unset and the app shows "Mimori" as the baseline brand.
+2. `NEXT_PUBLIC_BUSINESS_NAME` in your environment variables is only the *initial seed* value for the first deploy — after that, the Settings section in your profile is the source of truth.
+3. **Brand color** — the whole Material Design 3 color system (light + dark) is generated algorithmically from one seed color. To rebrand, change the seed in `tailwind.config.ts` / `globals.css` (see [ARCHITECTURE.md § Design System](./ARCHITECTURE.md#10-design-system)) and regenerate the token set.
+4. Update `EMAIL_FROM` and `ADMIN_EMAIL` to the new business's domain.
+5. Replace or configure the location color palette in `AdminStoresClient.tsx`.
 
-No code changes are required for the name — it is read from the environment variable everywhere it appears (login page, header, footer, email subjects).
+A small "Powered by Mimori" credit, linking back to this repository, always stays in the footer and on the login page — regardless of whitelabeling.
+
+---
+
+## License
+
+[MIT](./LICENSE) — use it, fork it, run it for your own business, or build on top of it.
+
+If you find it useful, a ⭐ on the repo is always appreciated.
 
 ---
 

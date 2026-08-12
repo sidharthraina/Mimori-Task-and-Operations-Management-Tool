@@ -50,18 +50,29 @@ export default async function TasksPage({
   const weekDates = getWeekDates(weekOffset)
   const [weekStart, weekEnd] = [weekDates[0], weekDates[6]]
 
-  const { data: tasks } = await supabase
-    .from('tasks')
-    .select('*')
-    .eq('store_id', activeStoreId)
-    .eq('active', true)
-    .order('scheduled_time', { ascending: true })
+  const [{ data: tasks }, { data: logs }, { data: rosterRows }] = await Promise.all([
+    supabase
+      .from('tasks')
+      .select('*')
+      .eq('store_id', activeStoreId)
+      .eq('active', true)
+      .order('scheduled_time', { ascending: true }),
+    supabase
+      .from('task_logs')
+      .select('*')
+      .gte('log_date', weekStart)
+      .lte('log_date', weekEnd),
+    supabase
+      .from('user_store_assignments')
+      .select('users(id, name, active)')
+      .eq('store_id', activeStoreId),
+  ])
 
-  const { data: logs } = await supabase
-    .from('task_logs')
-    .select('*')
-    .gte('log_date', weekStart)
-    .lte('log_date', weekEnd)
+  const roster = (rosterRows ?? [])
+    .map((r: any) => r.users)
+    .filter((u: any) => u && u.active)
+    .map((u: any) => ({ id: u.id as string, name: u.name as string }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <WeeklyGrid
@@ -70,6 +81,7 @@ export default async function TasksPage({
       profile={profile}
       weekDates={weekDates}
       weekOffset={weekOffset}
+      roster={roster}
     />
   )
 }

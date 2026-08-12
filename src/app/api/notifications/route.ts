@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
-// PATCH — mark all unread notifications as read (admin only)
-export async function PATCH() {
+// PATCH — mark one notification (body: { id }) or all unread notifications as read (admin only)
+export async function PATCH(request: NextRequest) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -89,10 +89,11 @@ export async function PATCH() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { error } = await supabase
-    .from('notifications')
-    .update({ is_read: true })
-    .eq('is_read', false)
+  const body = await request.json().catch(() => ({}))
+  const id = typeof body?.id === 'string' ? body.id : null
+
+  const query = supabase.from('notifications').update({ is_read: true })
+  const { error } = id ? await query.eq('id', id) : await query.eq('is_read', false)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

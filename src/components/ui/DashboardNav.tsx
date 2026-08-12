@@ -2,10 +2,13 @@
 
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useTheme } from 'next-themes'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import type { User, Store } from '@/types/database'
+import ProfileNotificationsSection from './ProfileNotificationsSection'
+import ProfileSettingsSection from './ProfileSettingsSection'
 
 interface Props {
   user: Pick<User, 'id' | 'name' | 'email' | 'role' | 'can_add_tasks' |
@@ -13,24 +16,37 @@ interface Props {
   notificationCount?: number
   stores: Store[]
   activeStore: Store | null
+  businessName?: string
+  logoUrl?: string | null
 }
 
-type ProfileTab = 'account' | 'notifications'
+type ProfileTab = 'account' | 'notifications' | 'alerts' | 'settings'
 
-export default function DashboardNav({ user, notificationCount = 0, stores, activeStore }: Props) {
+// Canonical role → badge class mapping. AdminUsersClient.tsx must use the same mapping.
+const ROLE_BADGE_CLASS: Record<'admin' | 'manager' | 'employee', string> = {
+  admin: 'badge-role-admin',
+  manager: 'badge-role-manager',
+  employee: 'badge-role-employee',
+}
+
+export default function DashboardNav({ user, notificationCount = 0, stores, activeStore, businessName = 'Mimori', logoUrl = null }: Props) {
   const router = useRouter()
   const pathname = usePathname()
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
   const [count, setCount] = useState(notificationCount)
   const [showProfile, setShowProfile] = useState(false)
   const [profileTab, setProfileTab] = useState<ProfileTab>('account')
   const [storeOpen, setStoreOpen] = useState(false)
   const [currentStore, setCurrentStore] = useState(activeStore)
 
+  useEffect(() => { setMounted(true) }, [])
+
   // Account fields
   const [name, setName] = useState(user.name)
   const [newPassword, setNewPassword] = useState('')
 
-  // Notification settings
+  // Email alert preferences
   const [notifIndividual, setNotifIndividual] = useState(user.notif_individual_missed)
   const [notifBatched, setNotifBatched] = useState(user.notif_batched_missed)
   const [eodTime, setEodTime] = useState(user.eod_report_time ?? '22:00')
@@ -41,15 +57,45 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null)
 
+  // Once a tab's form saves successfully, its Save button turns into Close
+  // until the user edits that tab's fields again — no auto-close timer.
+  const [accountSaved, setAccountSaved] = useState(false)
+  const [alertsSaved, setAlertsSaved] = useState(false)
+
   const isAdmin   = user.role === 'admin'
   const isManager = user.role === 'manager'
   const showStoreSwitcher = isAdmin || stores.length > 1
+
+  const roleKey: 'admin' | 'manager' | 'employee' = isAdmin ? 'admin' : isManager ? 'manager' : 'employee'
+  const roleLabel = isAdmin ? 'Admin' : isManager ? 'Manager' : 'Staff'
+
+  const sidebarItems: { key: ProfileTab; label: string; show: boolean }[] = [
+    { key: 'account',       label: 'Account',       show: true },
+    { key: 'notifications', label: 'Notifications', show: isAdmin || isManager },
+    { key: 'alerts',        label: 'Email Alerts',  show: isAdmin },
+    { key: 'settings',      label: 'Settings',      show: isAdmin },
+  ]
 
   function openProfile(tab: ProfileTab = 'account') {
     setProfileTab(tab)
     setProfileError(null)
     setProfileSuccess(null)
+    setAccountSaved(false)
+    setAlertsSaved(false)
     setShowProfile(true)
+  }
+
+  // Clears the stale success/error message and reverts Close back to Save
+  // the moment the user edits a field again.
+  function markAccountDirty() {
+    setAccountSaved(false)
+    setProfileSuccess(null)
+    setProfileError(null)
+  }
+  function markAlertsDirty() {
+    setAlertsSaved(false)
+    setProfileSuccess(null)
+    setProfileError(null)
   }
 
   function handleStoreSwitch(store: Store) {
@@ -64,11 +110,6 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
     await supabase.auth.signOut()
     router.push('/login')
     router.refresh()
-  }
-
-  async function handleMarkAllRead() {
-    await fetch('/api/notifications', { method: 'PATCH' })
-    setCount(0)
   }
 
   async function handleSaveAccount(e: React.FormEvent) {
@@ -95,9 +136,10 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
       if (pwErr) { setProfileError(pwErr.message); setSaving(false); return }
     }
 
-    setProfileSuccess('Profile updated.')
     setNewPassword('')
     setSaving(false)
+    setProfileSuccess('Profile updated.')
+    setAccountSaved(true)
     router.refresh()
   }
 
@@ -119,8 +161,9 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
       .eq('id', user.id)
 
     if (error) { setProfileError(error.message); setSaving(false); return }
-    setProfileSuccess('Notification settings saved.')
     setSaving(false)
+    setProfileSuccess('Notification settings saved.')
+    setAlertsSaved(true)
   }
 
   function isActive(href: string) {
@@ -131,39 +174,44 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
   const navLinkClass = (href: string) => cn(
     'btn-ghost whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
     isActive(href)
-      ? 'bg-brand-100 text-brand-700'
-      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+      ? 'bg-primaryContainer text-onPrimaryContainer'
+      : 'text-onSurfaceVariant hover:bg-surfaceContainer hover:text-onSurface'
   )
 
   const accentColor = currentStore?.color ?? '#d6721e'
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-brand-100 bg-white/90 backdrop-blur relative">
+      <header className="sticky top-0 z-30 border-b border-outlineVariant bg-surface relative">
         {/* Store colour accent strip */}
         <div className="absolute bottom-0 left-0 right-0 h-[3px] transition-colors duration-300" style={{ backgroundColor: accentColor }} />
 
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
           {/* Logo */}
           <Link href={isAdmin || isManager ? '/admin' : '/tasks'} className="flex-shrink-0">
-            <span
-              className="text-dark-900 leading-none"
-              style={{ fontFamily: 'var(--font-permanent-marker)', fontSize: 32 }}
-            >
-              {process.env.NEXT_PUBLIC_BUSINESS_NAME ?? 'Mimori'}
-            </span>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt={businessName} className="h-8 w-auto object-contain" />
+            ) : (
+              <span
+                className="text-onSurface leading-none font-display"
+                style={{ fontSize: 32 }}
+              >
+                {businessName}
+              </span>
+            )}
           </Link>
 
-          {/* Store switcher */}
+          {/* Store switcher — fixed width so store-name length never shifts the nav links beside it */}
           {showStoreSwitcher && (
-            <div className="relative flex-shrink-0">
+            <div className="relative flex-shrink-0 w-48">
               <button
                 onClick={() => setStoreOpen(o => !o)}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+                className="flex w-full items-center gap-1.5 rounded-lg border border-outline bg-surface px-2.5 py-1.5 text-xs font-medium text-onSurfaceVariant hover:bg-surfaceContainer transition-colors"
               >
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
-                <span className="max-w-[120px] truncate">{currentStore?.name ?? 'Select store'}</span>
-                <svg className={cn('w-3 h-3 text-gray-400 transition-transform', storeOpen && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <span className="flex-1 min-w-0 truncate text-left">{currentStore?.name ?? 'Select store'}</span>
+                <svg className={cn('w-3 h-3 flex-shrink-0 text-onSurfaceVariant/60 transition-transform', storeOpen && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
@@ -171,23 +219,23 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
               {storeOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setStoreOpen(false)} />
-                  <div className="absolute left-0 top-full mt-1.5 z-50 w-52 rounded-xl border border-gray-100 bg-white shadow-lg overflow-hidden">
+                  <div className="absolute left-0 top-full mt-1.5 z-50 w-52 rounded-xl border border-outlineVariant bg-surfaceContainerLowest shadow-elevation-2 overflow-hidden">
                     {stores.map(store => (
                       <button
                         key={store.id}
                         onClick={() => handleStoreSwitch(store)}
                         className={cn(
-                          'w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-50',
-                          store.id === currentStore?.id && 'bg-gray-50'
+                          'w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors hover:bg-surfaceContainer',
+                          store.id === currentStore?.id && 'bg-surfaceContainer'
                         )}
                       >
                         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: store.color }} />
-                        <span className="flex-1 truncate text-gray-800">{store.name}</span>
+                        <span className="flex-1 truncate text-onSurface">{store.name}</span>
                         {store.is_default && (
-                          <span className="text-[10px] text-gray-400 font-medium">Default</span>
+                          <span className="text-[10px] text-onSurfaceVariant/70 font-medium">Default</span>
                         )}
                         {store.id === currentStore?.id && (
-                          <svg className="w-3.5 h-3.5 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <svg className="w-3.5 h-3.5 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
                         )}
@@ -195,11 +243,11 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
                     ))}
                     {isAdmin && (
                       <>
-                        <div className="border-t border-gray-100" />
+                        <div className="border-t border-outlineVariant" />
                         <Link
                           href="/admin/stores"
                           onClick={() => setStoreOpen(false)}
-                          className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-gray-500 hover:bg-gray-50 transition-colors"
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-onSurfaceVariant hover:bg-surfaceContainer transition-colors"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -215,7 +263,7 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
             </div>
           )}
 
-          {/* Nav links — desktop only */}
+          {/* Nav links — desktop only. Labels are fixed app copy, not user data, so their widths never change. */}
           <nav className="hidden sm:flex items-center gap-0.5 text-sm overflow-x-auto">
             {(isAdmin || isManager) && (
               <Link href="/admin" className={navLinkClass('/admin')}>Dashboard</Link>
@@ -230,64 +278,61 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
             {isAdmin && (
               <Link href="/admin/stores" className={navLinkClass('/admin/stores')}>Stores</Link>
             )}
+            {isAdmin && (
+              <Link href="/admin/escalation" className={navLinkClass('/admin/escalation')}>Escalation</Link>
+            )}
           </nav>
 
           {/* Right side */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Notification bell (admin only) */}
-            {isAdmin && (
+            {/* Notification bell (admin + manager — both can be escalation-tier recipients) — opens Profile on the Notifications section */}
+            {(isAdmin || isManager) && (
               <button
-                onClick={handleMarkAllRead}
-                title={count > 0 ? `${count} missed task alert${count > 1 ? 's' : ''} — click to dismiss` : 'No alerts'}
-                className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
+                onClick={() => openProfile('notifications')}
+                title={count > 0 ? `${count} notification${count > 1 ? 's' : ''}` : 'No notifications'}
+                className="relative p-2 rounded-full hover:bg-surfaceContainer transition-colors"
               >
-                <svg className={cn('w-5 h-5', count > 0 ? 'text-red-500' : 'text-gray-400')}
+                <svg className={cn('w-5 h-5', count > 0 ? 'text-error' : 'text-onSurfaceVariant/60')}
                   fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round"
                     d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
                 {count > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full bg-error text-onError text-[9px] font-bold flex items-center justify-center px-0.5">
                     {count > 9 ? '9+' : count}
                   </span>
                 )}
               </button>
             )}
 
-            {/* Profile button */}
+            {/* Profile button — Settings & Sign out now live inside here. Name column is a fixed width so short/long names don't resize the button. */}
             <button
               onClick={() => openProfile('account')}
-              className="hidden sm:flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-gray-100 transition-colors"
+              className="hidden sm:flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-surfaceContainer transition-colors"
             >
-              <div className="w-7 h-7 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs flex-shrink-0">
+              <div className="w-7 h-7 rounded-full bg-primaryContainer flex items-center justify-center text-onPrimaryContainer font-bold text-xs flex-shrink-0">
                 {user.name.charAt(0).toUpperCase()}
               </div>
-              <div className="text-left">
-                <div className="text-sm text-gray-700 truncate max-w-[120px] leading-tight">{user.name}</div>
-                <div className={cn('text-[10px] font-medium mt-0.5',
-                  isAdmin ? 'text-brand-600' : isManager ? 'text-purple-600' : 'text-gray-500'
-                )}>
-                  {isAdmin ? 'Admin' : isManager ? 'Manager' : 'Staff'}
-                </div>
+              <div className="text-left w-[110px]">
+                <div className="text-sm text-onSurface truncate leading-tight">{user.name}</div>
+                <span className={cn(ROLE_BADGE_CLASS[roleKey], 'mt-0.5 !px-1.5 !py-0 text-[10px] leading-tight')}>
+                  {roleLabel}
+                </span>
               </div>
-            </button>
-
-            <button onClick={handleSignOut} className="hidden sm:inline-flex btn-ghost text-xs text-gray-500">
-              Sign out
             </button>
 
             {/* Hamburger — mobile only */}
             <button
               onClick={() => setShowMobileMenu(v => !v)}
-              className="sm:hidden p-2 rounded-full hover:bg-gray-100 transition-colors"
+              className="sm:hidden p-2 rounded-full hover:bg-surfaceContainer transition-colors"
               aria-label={showMobileMenu ? 'Close menu' : 'Open menu'}
             >
               {showMobileMenu ? (
-                <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-5 h-5 text-onSurface" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               ) : (
-                <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-5 h-5 text-onSurface" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               )}
@@ -297,7 +342,7 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
 
         {/* Mobile nav menu */}
         {showMobileMenu && (
-          <div className="sm:hidden border-t border-gray-100 px-4 py-3 space-y-1">
+          <div className="sm:hidden border-t border-outlineVariant px-4 py-3 space-y-1">
             {(isAdmin || isManager) && (
               <Link href="/admin" onClick={() => setShowMobileMenu(false)} className={cn(navLinkClass('/admin'), 'w-full justify-start')}>Dashboard</Link>
             )}
@@ -311,22 +356,25 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
             {isAdmin && (
               <Link href="/admin/stores" onClick={() => setShowMobileMenu(false)} className={cn(navLinkClass('/admin/stores'), 'w-full justify-start')}>Stores</Link>
             )}
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+            {isAdmin && (
+              <Link href="/admin/escalation" onClick={() => setShowMobileMenu(false)} className={cn(navLinkClass('/admin/escalation'), 'w-full justify-start')}>Escalation</Link>
+            )}
+            <div className="pt-3 border-t border-outlineVariant">
               <button
                 onClick={() => { openProfile('account'); setShowMobileMenu(false) }}
                 className="flex items-center gap-2.5"
               >
-                <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-sm flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-primaryContainer flex items-center justify-center text-onPrimaryContainer font-bold text-sm flex-shrink-0">
                   {user.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="text-left">
-                  <div className="text-sm font-medium text-gray-800">{user.name}</div>
-                  <div className={cn('text-xs', isAdmin ? 'text-brand-600' : isManager ? 'text-purple-600' : 'text-gray-500')}>
-                    {isAdmin ? 'Admin' : isManager ? 'Manager' : 'Staff'}
+                  <div className="text-sm font-medium text-onSurface">{user.name}</div>
+                  <div className="text-xs text-onSurfaceVariant flex items-center gap-1.5">
+                    <span className={ROLE_BADGE_CLASS[roleKey]}>{roleLabel}</span>
+                    <span>· tap to open profile</span>
                   </div>
                 </div>
               </button>
-              <button onClick={handleSignOut} className="btn-ghost text-xs text-gray-500">Sign out</button>
             </div>
           </div>
         )}
@@ -335,148 +383,204 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
       {/* Profile modal */}
       {showProfile && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/[0.32] backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-onSurface/40 backdrop-blur-sm p-4"
           onClick={() => setShowProfile(false)}
         >
           <div
-            className="bg-white rounded-[28px] p-6 w-full max-w-sm shadow-lg"
+            className="modal-surface p-5 sm:p-6 w-full max-w-2xl flex gap-5 max-h-[85vh]"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-dark-900">Profile</h2>
+            {/* Sidebar */}
+            <div className="w-28 sm:w-40 flex-shrink-0 flex flex-col">
+              <h2 className="text-base sm:text-lg font-bold text-onSurface mb-4 px-1">Profile</h2>
+              <nav className="space-y-0.5 flex-1">
+                {sidebarItems.filter(i => i.show).map(item => (
+                  <button
+                    key={item.key}
+                    onClick={() => { setProfileTab(item.key); setProfileError(null); setProfileSuccess(null) }}
+                    className={cn(
+                      'w-full text-left text-sm rounded-lg px-3 py-2 transition-colors',
+                      profileTab === item.key ? 'bg-primaryContainer text-onPrimaryContainer font-medium' : 'text-onSurfaceVariant hover:bg-surfaceContainer'
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </nav>
+              <div className="border-t border-outlineVariant pt-2 mt-2 space-y-0.5">
+                <button
+                  onClick={handleSignOut}
+                  className="w-full text-left text-sm rounded-lg px-3 py-2 text-error hover:bg-error/8 transition-colors"
+                >
+                  Sign out
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0 overflow-y-auto pr-1">
               <button
                 onClick={() => setShowProfile(false)}
-                className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                className="float-right w-9 h-9 -mt-1 -mr-1 rounded-full hover:bg-surfaceContainer flex items-center justify-center text-onSurfaceVariant hover:text-onSurface transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-            </div>
 
-            {/* Tabs — only admins see notification settings */}
-            {isAdmin && (
-              <div className="flex gap-1 mb-5 bg-gray-100 rounded-full p-1">
-                {(['account', 'notifications'] as ProfileTab[]).map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => { setProfileTab(tab); setProfileError(null); setProfileSuccess(null) }}
-                    className={cn(
-                      'flex-1 text-xs font-medium rounded-full py-1.5 capitalize transition-colors',
-                      profileTab === tab ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              {/* Account */}
+              {profileTab === 'account' && (
+                <form onSubmit={handleSaveAccount} className="space-y-4 max-w-sm">
+                  <div>
+                    <label className="label">Display name</label>
+                    <input className="input" required value={name} onChange={e => { setName(e.target.value); markAccountDirty() }} />
+                  </div>
+                  <div>
+                    <label className="label">Email</label>
+                    <input className="input bg-surfaceContainerLow text-onSurfaceVariant/60 cursor-not-allowed" value={user.email} disabled />
+                    <p className="text-xs text-onSurfaceVariant/70 mt-1">Email changes require admin action</p>
+                  </div>
+                  <div>
+                    <label className="label">New password</label>
+                    <input
+                      type="password" className="input"
+                      placeholder="Leave blank to keep current"
+                      minLength={8} value={newPassword}
+                      onChange={e => { setNewPassword(e.target.value); markAccountDirty() }}
+                    />
+                  </div>
+
+                  {/* Appearance — theme toggle lives here, deliberately kept out of the primary nav bar */}
+                  <div>
+                    <label className="label">Appearance</label>
+                    <div className="inline-flex rounded-full border border-outline p-0.5 gap-0.5">
+                      {(['light', 'dark', 'system'] as const).map(opt => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => setTheme(opt)}
+                          className={cn(
+                            'rounded-full px-3 py-1.5 text-xs font-medium capitalize transition-colors',
+                            mounted && theme === opt
+                              ? 'bg-primary text-onPrimary'
+                              : 'text-onSurfaceVariant hover:bg-surfaceContainer'
+                          )}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {profileError && <p className="text-sm text-onErrorContainer bg-errorContainer rounded-xl px-3 py-2">{profileError}</p>}
+                  {profileSuccess && (
+                    <p className="text-sm text-onSuccessContainer bg-successContainer rounded-xl px-3 py-2">
+                      {profileSuccess} {accountSaved && '— you can close this now.'}
+                    </p>
+                  )}
+                  <div className="flex justify-end pt-1">
+                    {accountSaved ? (
+                      <button type="button" onClick={() => setShowProfile(false)} className="btn-primary">Close</button>
+                    ) : (
+                      <button type="submit" disabled={saving} className="btn-primary">{saving ? 'Saving…' : 'Save'}</button>
                     )}
-                  >
-                    {tab === 'notifications' ? 'Email Alerts' : 'Account'}
-                  </button>
-                ))}
-              </div>
-            )}
+                  </div>
+                </form>
+              )}
 
-            {/* Account tab */}
-            {profileTab === 'account' && (
-              <form onSubmit={handleSaveAccount} className="space-y-4">
-                <div>
-                  <label className="label">Display name</label>
-                  <input className="input" required value={name} onChange={e => setName(e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Email</label>
-                  <input className="input bg-gray-50 text-gray-400 cursor-not-allowed" value={user.email} disabled />
-                  <p className="text-xs text-gray-400 mt-1">Email changes require admin action</p>
-                </div>
-                <div>
-                  <label className="label">New password</label>
-                  <input
-                    type="password" className="input"
-                    placeholder="Leave blank to keep current"
-                    minLength={8} value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)}
-                  />
-                </div>
-                {profileError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{profileError}</p>}
-                {profileSuccess && <p className="text-sm text-green-600 bg-green-50 border border-green-200 rounded-xl px-3 py-2">{profileSuccess}</p>}
-                <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => setShowProfile(false)} className="btn-ghost flex-1">Cancel</button>
-                  <button type="submit" disabled={saving} className="btn-primary flex-1">{saving ? 'Saving…' : 'Save'}</button>
-                </div>
-              </form>
-            )}
+              {/* Notifications — real alert feed */}
+              {profileTab === 'notifications' && (isAdmin || isManager) && (
+                <ProfileNotificationsSection isAdmin={isAdmin} isManager={isManager} onCountChange={setCount} />
+              )}
 
-            {/* Notification settings tab (admin only) */}
-            {profileTab === 'notifications' && isAdmin && (
-              <form onSubmit={handleSaveNotifications} className="space-y-5">
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Missed Task Alerts</p>
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">Individual emails</p>
-                        <p className="text-xs text-gray-400 mt-0.5">One email per missed task as soon as it&apos;s detected</p>
+              {/* Email alert preferences (admin only) */}
+              {profileTab === 'alerts' && isAdmin && (
+                <form onSubmit={handleSaveNotifications} className="space-y-5 max-w-sm">
+                  <div>
+                    <p className="label mb-3">Missed Task Alerts</p>
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-onSurface">Individual emails</p>
+                          <p className="text-xs text-onSurfaceVariant/70 mt-0.5">One email per missed task as soon as it&apos;s detected</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setNotifIndividual(v => !v); markAlertsDirty() }}
+                          className={cn(
+                            'relative flex-shrink-0 h-8 w-[52px] rounded-full border-2 transition-all duration-200',
+                            notifIndividual ? 'bg-primary border-primary' : 'bg-surfaceContainerHigh border-outline'
+                          )}
+                          role="switch"
+                          aria-checked={notifIndividual}
+                        >
+                          <span className={cn(
+                            'absolute top-1/2 -translate-y-1/2 rounded-full shadow-sm transition-all duration-200',
+                            notifIndividual ? 'left-6 w-6 h-6 bg-onPrimary' : 'left-1 w-4 h-4 bg-onSurfaceVariant'
+                          )} />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setNotifIndividual(v => !v)}
-                        className={cn(
-                          'relative flex-shrink-0 h-8 w-[52px] rounded-full border-2 transition-all duration-200',
-                          notifIndividual ? 'bg-brand-500 border-brand-500' : 'bg-gray-50 border-gray-400'
-                        )}
-                        role="switch"
-                        aria-checked={notifIndividual}
-                      >
-                        <span className={cn(
-                          'absolute top-1/2 -translate-y-1/2 rounded-full shadow-sm transition-all duration-200',
-                          notifIndividual ? 'left-6 w-6 h-6 bg-white' : 'left-1 w-4 h-4 bg-gray-400'
-                        )} />
-                      </button>
-                    </div>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">Batched emails</p>
-                        <p className="text-xs text-gray-400 mt-0.5">One email per check run, grouping all newly missed tasks</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-onSurface">Batched emails</p>
+                          <p className="text-xs text-onSurfaceVariant/70 mt-0.5">One email per check run, grouping all newly missed tasks</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setNotifBatched(v => !v); markAlertsDirty() }}
+                          className={cn(
+                            'relative flex-shrink-0 h-8 w-[52px] rounded-full border-2 transition-all duration-200',
+                            notifBatched ? 'bg-primary border-primary' : 'bg-surfaceContainerHigh border-outline'
+                          )}
+                          role="switch"
+                          aria-checked={notifBatched}
+                        >
+                          <span className={cn(
+                            'absolute top-1/2 -translate-y-1/2 rounded-full shadow-sm transition-all duration-200',
+                            notifBatched ? 'left-6 w-6 h-6 bg-onPrimary' : 'left-1 w-4 h-4 bg-onSurfaceVariant'
+                          )} />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setNotifBatched(v => !v)}
-                        className={cn(
-                          'relative flex-shrink-0 h-8 w-[52px] rounded-full border-2 transition-all duration-200',
-                          notifBatched ? 'bg-brand-500 border-brand-500' : 'bg-gray-50 border-gray-400'
-                        )}
-                        role="switch"
-                        aria-checked={notifBatched}
-                      >
-                        <span className={cn(
-                          'absolute top-1/2 -translate-y-1/2 rounded-full shadow-sm transition-all duration-200',
-                          notifBatched ? 'left-6 w-6 h-6 bg-white' : 'left-1 w-4 h-4 bg-gray-400'
-                        )} />
-                      </button>
                     </div>
                   </div>
-                </div>
 
-                <div className="border-t border-gray-100 pt-4">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">End of Day Report</p>
-                  <p className="text-xs text-gray-400 mb-3">Sent daily with a full breakdown — counts, categories, who completed what, and missed tasks.</p>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="label">Send time</label>
-                      <input type="time" className="input w-36" value={eodTime} onChange={e => setEodTime(e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="label">Report email <span className="text-gray-400 font-normal">(leave blank to use ADMIN_EMAIL)</span></label>
-                      <input type="email" className="input" placeholder="owner@example.com" value={eodEmail} onChange={e => setEodEmail(e.target.value)} />
+                  <div className="border-t border-outlineVariant pt-4">
+                    <p className="label mb-3">End of Day Report</p>
+                    <p className="text-xs text-onSurfaceVariant/70 mb-3">Sent daily with a full breakdown — counts, categories, who completed what, and missed tasks.</p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="label">Send time</label>
+                        <input type="time" className="input w-36" value={eodTime} onChange={e => { setEodTime(e.target.value); markAlertsDirty() }} />
+                      </div>
+                      <div>
+                        <label className="label">Report email <span className="text-onSurfaceVariant/70 font-normal normal-case tracking-normal">(leave blank to use ADMIN_EMAIL)</span></label>
+                        <input type="email" className="input" placeholder="owner@example.com" value={eodEmail} onChange={e => { setEodEmail(e.target.value); markAlertsDirty() }} />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {profileError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{profileError}</p>}
-                {profileSuccess && <p className="text-sm text-green-600 bg-green-50 border border-green-200 rounded-xl px-3 py-2">{profileSuccess}</p>}
+                  {profileError && <p className="text-sm text-onErrorContainer bg-errorContainer rounded-xl px-3 py-2">{profileError}</p>}
+                  {profileSuccess && (
+                    <p className="text-sm text-onSuccessContainer bg-successContainer rounded-xl px-3 py-2">
+                      {profileSuccess} {alertsSaved && '— you can close this now.'}
+                    </p>
+                  )}
 
-                <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => setShowProfile(false)} className="btn-ghost flex-1">Cancel</button>
-                  <button type="submit" disabled={saving} className="btn-primary flex-1">{saving ? 'Saving…' : 'Save'}</button>
-                </div>
-              </form>
-            )}
+                  <div className="flex justify-end pt-1">
+                    {alertsSaved ? (
+                      <button type="button" onClick={() => setShowProfile(false)} className="btn-primary">Close</button>
+                    ) : (
+                      <button type="submit" disabled={saving} className="btn-primary">{saving ? 'Saving…' : 'Save'}</button>
+                    )}
+                  </div>
+                </form>
+              )}
+
+              {/* Branding settings (admin only) */}
+              {profileTab === 'settings' && isAdmin && (
+                <ProfileSettingsSection initialBusinessName={businessName} initialLogoUrl={logoUrl} />
+              )}
+            </div>
           </div>
         </div>
       )}

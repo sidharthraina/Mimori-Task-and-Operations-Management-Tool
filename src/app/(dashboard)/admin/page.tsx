@@ -22,7 +22,7 @@ export default async function AdminPage() {
     activeStoreId = def?.id ?? ''
   }
 
-  const [{ data: tasks }, { data: logs }] = await Promise.all([
+  const [{ data: tasks }, { data: logs }, { data: rosterRows }] = await Promise.all([
     supabase
       .from('tasks')
       .select('*')
@@ -34,13 +34,24 @@ export default async function AdminPage() {
       .select('*, tasks(*), users:completed_by(id, name, email)')
       .gte('log_date', sinceISO)
       .order('log_date', { ascending: false }),
+    supabase
+      .from('user_store_assignments')
+      .select('users(id, name, active)')
+      .eq('store_id', activeStoreId),
   ])
+
+  const roster = (rosterRows ?? [])
+    .map((r: any) => r.users)
+    .filter((u: any) => u && u.active)
+    .map((u: any) => ({ id: u.id as string, name: u.name as string }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <AdminDashboard
       tasks={tasks ?? []}
       logs={logs ?? []}
       today={today}
+      roster={roster}
     />
   )
 }

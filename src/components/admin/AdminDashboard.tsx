@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { cn, formatTime, formatDate } from '@/lib/utils'
+import { isTaskDueOn } from '@/lib/recurrence'
 import { createClient } from '@/lib/supabase/client'
 import type { Task, TaskLogWithTask } from '@/types/database'
 
@@ -13,10 +14,16 @@ interface DashboardRow {
   effectiveStatus: EffectiveStatus
 }
 
+interface Roster {
+  id: string
+  name: string
+}
+
 interface Props {
   tasks: Task[]
   logs: TaskLogWithTask[]
   today: string
+  roster?: Roster[]
 }
 
 function computeStatus(
@@ -53,7 +60,7 @@ const STATUS_FILTER_LABELS: Record<string, string> = {
   missed:   'Missed',
 }
 
-export default function AdminDashboard({ tasks, logs: initialLogs, today }: Props) {
+export default function AdminDashboard({ tasks, logs: initialLogs, today, roster = [] }: Props) {
   const [filterDate, setFilterDate] = useState(today)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
@@ -91,20 +98,27 @@ export default function AdminDashboard({ tasks, logs: initialLogs, today }: Prop
     }
   }, [])
 
-  // Build all rows for the selected date (every active task, with or without a log)
+  // Build all rows for the selected date (every task due that date, with or without a log)
   const allRows = useMemo<DashboardRow[]>(() => {
     const now = new Date()
-    return tasks.map(task => {
-      const log = logs.find(
-        l => l.task_id === task.id && l.log_date === filterDate
-      ) as TaskLogWithTask | undefined
-      return {
-        task,
-        log,
-        effectiveStatus: computeStatus(task, log, filterDate, today, now),
-      }
-    }).sort((a, b) => a.task.scheduled_time.localeCompare(b.task.scheduled_time))
+    return tasks
+      .filter(task => isTaskDueOn(task, filterDate))
+      .map(task => {
+        const log = logs.find(
+          l => l.task_id === task.id && l.log_date === filterDate
+        ) as TaskLogWithTask | undefined
+        return {
+          task,
+          log,
+          effectiveStatus: computeStatus(task, log, filterDate, today, now),
+        }
+      }).sort((a, b) => a.task.scheduled_time.localeCompare(b.task.scheduled_time))
   }, [tasks, logs, filterDate, today])
+
+  function assigneeName(userId: string | null) {
+    if (!userId) return null
+    return roster.find(u => u.id === userId)?.name ?? null
+  }
 
   const filtered = useMemo(() =>
     filterStatus === 'all'
@@ -121,17 +135,17 @@ export default function AdminDashboard({ tasks, logs: initialLogs, today }: Prop
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-dark-900">Dashboard</h1>
-        <span className="text-sm text-gray-500">{formatDate(filterDate)}</span>
+        <h1 className="text-xl font-bold text-onSurface">Dashboard</h1>
+        <span className="text-sm text-onSurfaceVariant">{formatDate(filterDate)}</span>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <SummaryCard label="Total Tasks" value={String(allRows.length)}  color="neutral" />
-        <SummaryCard label="Upcoming"    value={String(upcomingCount)}   color="gray" />
-        <SummaryCard label="Completed"   value={String(doneCount)}       color="green" />
-        <SummaryCard label="Pending"     value={String(pendingCount)}    color="yellow" />
-        <SummaryCard label="Missed"      value={String(missedCount)}     color="red" />
+        <SummaryCard label="Upcoming"    value={String(upcomingCount)}   color="neutral" />
+        <SummaryCard label="Completed"   value={String(doneCount)}       color="success" />
+        <SummaryCard label="Pending"     value={String(pendingCount)}    color="warning" />
+        <SummaryCard label="Missed"      value={String(missedCount)}     color="error" />
       </div>
 
       {/* Filters */}
@@ -160,21 +174,22 @@ export default function AdminDashboard({ tasks, logs: initialLogs, today }: Prop
 
       {/* Table */}
       <div className="card p-0 overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-100 text-sm">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-outlineVariant text-sm">
+          <thead className="bg-surfaceContainer">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Task</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Time</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Completed by</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Completed at</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Photo</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-onSurfaceVariant uppercase tracking-wide">Task</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-onSurfaceVariant uppercase tracking-wide">Time</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-onSurfaceVariant uppercase tracking-wide">Assigned</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-onSurfaceVariant uppercase tracking-wide">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-onSurfaceVariant uppercase tracking-wide">Completed by</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-onSurfaceVariant uppercase tracking-wide">Completed at</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-onSurfaceVariant uppercase tracking-wide">Photo</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-outlineVariant">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-10 text-center text-onSurfaceVariant/70">
                   No tasks match the selected filters.
                 </td>
               </tr>
@@ -183,25 +198,28 @@ export default function AdminDashboard({ tasks, logs: initialLogs, today }: Prop
                 <tr
                   key={task.id}
                   className={cn(
-                    'transition-colors hover:bg-gray-50/50',
-                    effectiveStatus === 'missed'   && 'bg-red-50/40',
-                    effectiveStatus === 'pending'  && 'bg-yellow-50/40',
-                    effectiveStatus === 'upcoming' && 'bg-blue-50/30',
+                    'transition-colors hover:bg-surfaceContainer/50',
+                    effectiveStatus === 'missed'   && 'bg-errorContainer/40',
+                    effectiveStatus === 'pending'  && 'bg-warningContainer/40',
+                    effectiveStatus === 'upcoming' && 'bg-secondaryContainer/30',
                   )}
                 >
-                  <td className="px-4 py-3 font-medium text-gray-900 max-w-[200px] truncate">
+                  <td className="px-4 py-3 font-medium text-onSurface max-w-[200px] truncate">
                     {task.title}
                   </td>
-                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
+                  <td className="px-4 py-3 text-onSurfaceVariant whitespace-nowrap font-mono text-xs">
                     {formatTime(task.scheduled_time)}
+                  </td>
+                  <td className="px-4 py-3 text-onSurfaceVariant text-xs">
+                    {assigneeName(task.assigned_user_id) ?? <span className="text-onSurfaceVariant/40">Open</span>}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={effectiveStatus} />
                   </td>
-                  <td className="px-4 py-3 text-gray-700">
+                  <td className="px-4 py-3 text-onSurface">
                     {(log?.users as { name: string } | null)?.name ?? '—'}
                   </td>
-                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                  <td className="px-4 py-3 text-onSurfaceVariant whitespace-nowrap">
                     {log?.completed_at
                       ? new Date(log.completed_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
                       : '—'}
@@ -210,12 +228,12 @@ export default function AdminDashboard({ tasks, logs: initialLogs, today }: Prop
                     {log?.photo_url ? (
                       <button
                         onClick={() => setPhotoUrl(log?.photo_url ?? null)}
-                        className="text-xs font-medium text-brand-600 hover:text-brand-700 underline underline-offset-2"
+                        className="text-xs font-medium text-primary hover:text-primary/80 underline underline-offset-2"
                       >
                         View
                       </button>
                     ) : (
-                      <span className="text-gray-300">—</span>
+                      <span className="text-onSurfaceVariant/40">—</span>
                     )}
                   </td>
                 </tr>
@@ -225,11 +243,11 @@ export default function AdminDashboard({ tasks, logs: initialLogs, today }: Prop
         </table>
       </div>
 
-      <p className="text-xs text-gray-400 text-right">
+      <p className="text-xs text-onSurfaceVariant/70 text-right">
         Showing {filtered.length} of {allRows.length} tasks
       </p>
 
-      {/* Photo popup */}
+      {/* Photo popup — backdrop stays dark regardless of theme (lightbox convention) */}
       {photoUrl && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
@@ -238,7 +256,7 @@ export default function AdminDashboard({ tasks, logs: initialLogs, today }: Prop
           <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
             <button
               onClick={() => setPhotoUrl(null)}
-              className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+              className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-surfaceContainerLowest shadow-elevation-2 flex items-center justify-center text-onSurfaceVariant hover:text-onSurface hover:bg-surfaceContainer transition-colors"
               aria-label="Close"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -259,19 +277,18 @@ export default function AdminDashboard({ tasks, logs: initialLogs, today }: Prop
 }
 
 function SummaryCard({ label, value, color }: {
-  label: string; value: string; color: 'neutral' | 'gray' | 'green' | 'yellow' | 'red'
+  label: string; value: string; color: 'neutral' | 'success' | 'warning' | 'error'
 }) {
-  const colors = {
-    neutral: 'text-gray-900 bg-gray-50',
-    gray:    'text-gray-600 bg-gray-100',
-    green:   'text-green-600 bg-green-50',
-    yellow:  'text-yellow-600 bg-yellow-50',
-    red:     'text-red-600 bg-red-50',
+  const textColor = {
+    neutral: 'text-onSurface',
+    success: 'text-success',
+    warning: 'text-warning',
+    error:   'text-error',
   }
   return (
-    <div className={cn('rounded-2xl p-4', colors[color])}>
-      <p className="text-xs font-medium opacity-70">{label}</p>
-      <p className="text-2xl font-bold mt-1">{value}</p>
+    <div className="card">
+      <p className="text-xs font-medium text-onSurfaceVariant">{label}</p>
+      <p className={cn('text-2xl font-bold mt-1', textColor[color])}>{value}</p>
     </div>
   )
 }
@@ -280,9 +297,5 @@ function StatusBadge({ status }: { status: EffectiveStatus }) {
   if (status === 'done')    return <span className="badge-done">Completed</span>
   if (status === 'missed')  return <span className="badge-missed">Missed</span>
   if (status === 'pending') return <span className="badge-pending">Pending</span>
-  return (
-    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600">
-      Upcoming
-    </span>
-  )
+  return <span className="badge-upcoming">Upcoming</span>
 }

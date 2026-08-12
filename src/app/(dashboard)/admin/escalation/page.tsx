@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
-import AdminTasksClient from '@/components/admin/AdminTasksClient'
+import AdminEscalationClient from '@/components/admin/AdminEscalationClient'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AdminTasksPage() {
+export default async function AdminEscalationPage() {
   const supabase = createClient()
   const cookieStore = cookies()
 
@@ -18,6 +18,8 @@ export default async function AdminTasksPage() {
     .eq('id', user.id)
     .single()
 
+  if (profile?.role !== 'admin') redirect('/admin')
+
   // Resolve active store
   const cookieStoreId = cookieStore.get('active-store-id')?.value
   let activeStoreId: string = cookieStoreId ?? ''
@@ -26,38 +28,30 @@ export default async function AdminTasksPage() {
     activeStoreId = def?.id ?? ''
   }
 
-  const [{ data: tasks }, { data: rosterRows }, { data: escalationRules }] = await Promise.all([
-    supabase
-      .from('tasks')
-      .select('*')
-      .eq('store_id', activeStoreId)
-      .order('category')
-      .order('scheduled_time'),
-    supabase
-      .from('user_store_assignments')
-      .select('users(id, name, active)')
-      .eq('store_id', activeStoreId),
+  const [{ data: rules }, { data: rosterRows }] = await Promise.all([
     supabase
       .from('escalation_rules')
       .select('*, escalation_tiers(*)')
       .eq('store_id', activeStoreId)
-      .eq('active', true)
+      .order('is_default', { ascending: false })
       .order('name'),
+    supabase
+      .from('user_store_assignments')
+      .select('users(id, name, role, active)')
+      .eq('store_id', activeStoreId),
   ])
 
   const roster = (rosterRows ?? [])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((r: any) => r.users)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((u: any) => u && u.active)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((u: any) => ({ id: u.id as string, name: u.name as string }))
     .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
-    <AdminTasksClient
-      initialTasks={tasks ?? []}
-      isReadOnly={profile?.role === 'manager'}
-      storeId={activeStoreId}
-      roster={roster}
-      escalationRules={(escalationRules ?? []) as any}
-    />
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    <AdminEscalationClient initialRules={(rules ?? []) as any} storeId={activeStoreId} roster={roster} />
   )
 }

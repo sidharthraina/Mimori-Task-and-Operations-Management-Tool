@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import DashboardNav from '@/components/ui/DashboardNav'
-import { hexToTint } from '@/lib/utils'
 import type { Store } from '@/types/database'
 
 export default async function DashboardLayout({
@@ -55,26 +54,55 @@ export default async function DashboardLayout({
       .select('*', { count: 'exact', head: true })
       .eq('is_read', false)
       .eq('store_id', activeStore.id)
-    notificationCount = count ?? 0
+    notificationCount += count ?? 0
+  }
+  if (profile.role === 'admin' || profile.role === 'manager') {
+    const { count } = await supabase
+      .from('escalation_notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('recipient_id', user.id)
+      .eq('is_read', false)
+    notificationCount += count ?? 0
   }
 
-  const bgTint = hexToTint(activeStore?.color ?? '#d6721e')
+  const { data: businessSettings } = await supabase
+    .from('business_settings')
+    .select('business_name, logo_url')
+    .eq('id', 1)
+    .single()
+
+  // Whole-page store-color wash — subtle (8%), theme-aware via color-mix()
+  // against the live --background token (so it never breaks dark mode the
+  // way the old white-only tint did), and transitions slowly on store
+  // switch so the admin visibly notices they've changed stores.
+  const storeAccent = activeStore?.color ?? '#d6721e'
 
   return (
-    <div className="min-h-screen flex flex-col transition-colors duration-500" style={{ backgroundColor: bgTint }}>
+    <div
+      className="min-h-screen flex flex-col transition-colors duration-500 bg-[color-mix(in_srgb,var(--store-accent)_8%,rgb(var(--background)))]"
+      style={{ '--store-accent': storeAccent } as React.CSSProperties}
+    >
       <DashboardNav
         user={profile}
         notificationCount={notificationCount}
         stores={stores}
         activeStore={activeStore}
+        businessName={businessSettings?.business_name ?? 'Mimori'}
+        logoUrl={businessSettings?.logo_url ?? null}
       />
       <main className="flex-1 w-full max-w-6xl mx-auto px-4 py-6">
         {children}
       </main>
       <footer className="w-full max-w-6xl mx-auto px-4 py-4">
-        <p className="text-right text-black" style={{ fontFamily: 'var(--font-roboto)', fontSize: 12, fontWeight: 400 }}>
+        <a
+          href="https://github.com/sidharthraina/Mimori-Task-and-Operations-Management-Tool"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-right text-onSurfaceVariant hover:underline"
+          style={{ fontFamily: 'var(--font-roboto)', fontSize: 12, fontWeight: 400 }}
+        >
           Powered by Mimori
-        </p>
+        </a>
       </footer>
     </div>
   )

@@ -98,13 +98,24 @@ serve(async (req: Request) => {
     }
   }
 
-  console.log(`Purge complete: deleted ${totalDeleted} logs, ${photoPaths.length} photos. Cutoff: ${cutoffISO}`)
+  // ── Delete old escalation notifications (no other retention exists for these) ──
+  const { count: escalationDeleted, error: escalationErr } = await supabase
+    .from('escalation_notifications')
+    .delete({ count: 'exact' })
+    .lt('log_date', cutoffISO)
+
+  if (escalationErr) {
+    console.error('escalation_notifications purge error (continuing):', escalationErr.message)
+  }
+
+  console.log(`Purge complete: deleted ${totalDeleted} logs, ${photoPaths.length} photos, ${escalationDeleted ?? 0} escalation notifications. Cutoff: ${cutoffISO}`)
 
   return new Response(
     JSON.stringify({
       cutoff: cutoffISO,
       deleted: totalDeleted,
       photos_removed: photoPaths.length,
+      escalation_notifications_deleted: escalationDeleted ?? 0,
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
   )

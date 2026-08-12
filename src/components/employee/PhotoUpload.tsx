@@ -19,6 +19,12 @@ export default function PhotoUpload({ uploading, onUpload }: Props) {
 
   return (
     <>
+      {/*
+        Intentional non-change: paired with CameraCapture.tsx's literal black
+        overlay/white shutter (camera-UI convention, like iOS Camera/Instagram/
+        WhatsApp) — this trigger is deliberately left off the M3 token sweep
+        rather than switched to onSurfaceVariant/primary.
+      */}
       <button
         type="button"
         onClick={() => setShowCamera(true)}

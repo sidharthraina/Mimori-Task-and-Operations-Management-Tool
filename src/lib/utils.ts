@@ -35,11 +35,3 @@ export function isOverdue(scheduledTime: string, graceMinutes = 30): boolean {
 }
 
 export const CATEGORY_ORDER = ['Opening', 'Setup', 'Prep', 'Cleaning', 'Closing', 'Other'] as const
-
-// Returns a very light tint of a hex colour (default 8% colour on white)
-export function hexToTint(hex: string, opacity = 0.08): string {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return `rgb(${Math.round(255 - (255 - r) * opacity)}, ${Math.round(255 - (255 - g) * opacity)}, ${Math.round(255 - (255 - b) * opacity)})`
-}
