@@ -108,7 +108,7 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
   async function handleSignOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push('/')
     router.refresh()
   }
 
@@ -410,7 +410,7 @@ export default function DashboardNav({ user, notificationCount = 0, stores, acti
               <div className="border-t border-outlineVariant pt-2 mt-2 space-y-0.5">
                 <button
                   onClick={handleSignOut}
-                  className="w-full text-left text-sm rounded-lg px-3 py-2 text-error hover:bg-error/8 transition-colors"
+                  className="w-full text-left text-sm font-bold rounded-lg px-3 py-2 bg-errorContainer text-onErrorContainer hover:bg-error hover:text-onError transition-colors"
                 >
                   Sign out
                 </button>

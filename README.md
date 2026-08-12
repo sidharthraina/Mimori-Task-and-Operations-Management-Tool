@@ -32,12 +32,14 @@ It's built generically enough that "store" can mean a café, a gym floor, a clin
 | **Multi-location management** | Admins manage all locations from one dashboard. Staff only see the location(s) they're assigned to. Switching between locations is a one-tap action, with a visible, theme-aware color cue so it's never ambiguous which location you're looking at. |
 | **Role-based access** | Three roles — Admin, Manager, Staff — with granular permissions. Admins control who can access what. |
 | **Photo proof of completion** | Staff can attach a photo directly from their device camera when marking a task done. Creates an audit trail without extra process. |
+| **Geofenced photo checks** | Optionally set a location + radius per store; task photos taken outside it are flagged for admin review — soft by design, never blocks the upload or requests location for stores that haven't opted in. |
 | **Configurable escalation chains** | Instead of a flat "email all admins" alert, define an ordered chain per location: notify the assignee, then a role, then a specific person — each after its own delay — triggered by a missed task or one completed without required proof. |
 | **Missed task detection** | Automated checks every 20 minutes flag tasks not completed within their window and run them through the escalation chain. |
 | **Real-time admin dashboard** | Live view of today's task status (Upcoming / Pending / Completed / Missed) updated the moment a staff member acts. Filterable by date and status. |
 | **End-of-day report** | A nightly email summary with full breakdown: completion rates, categories, who completed what, and all missed tasks — delivered to the owner's inbox. |
 | **Light & dark mode** | A full Material Design 3 color system generated from your brand color, in both light and dark, switchable per user (or left on "system"). |
 | **Live whitelabel branding** | Business name and logo are editable from inside the app — no redeploy needed to rebrand. |
+| **Public landing page** | A whitelabel-aware marketing page at `/` explains the product to visitors before they sign in — the front door for a forked deployment, not just a login wall. |
 
 ---
 
@@ -66,6 +68,20 @@ For the full technical deep-dive — data model, recurrence engine, escalation m
 - A [Supabase](https://supabase.com) project
 - A [Vercel](https://vercel.com) account
 - A [Resend](https://resend.com) account (for email alerts)
+
+### What's Already Built vs. What You Set Up
+
+This is a self-hosted tool, not a managed SaaS — there's no signup flow that provisions infrastructure for you. Everything below is a **free-tier-friendly** external service. The code and configuration for each is already in this repo; what's left is creating your own account with each provider and connecting it via environment variables / secrets.
+
+| Service | What it's for | Required? | Already in this repo | You need to do |
+|---|---|---|---|---|
+| **[Supabase](https://supabase.com)** | Database (Postgres), Auth, file storage, realtime updates, and the two scheduled Edge Functions | Yes — this is the entire backend | Full schema + RLS policies (`supabase/migrations/`), Edge Function code (`supabase/functions/`) | Create a free project, run the migrations in order, deploy the Edge Functions, add your project's URL + keys as env vars |
+| **[Vercel](https://vercel.com)** | Hosts and serves the Next.js app | Yes (or any Next.js-compatible host) | `next.config`, build setup | Create a free account, connect this repo, add the env vars |
+| **[Resend](https://resend.com)** | Sends missed-task alerts, escalation emails, and the end-of-day report | For email notifications — the app still runs without it, just silently | Email-sending calls inside the Edge Functions | Create a free account, verify a sending domain, add the API key |
+| **GitHub Actions** | Cron scheduler that triggers `check-missed-tasks` and `purge-old-logs` on a timer | For missed-task detection and escalation to run automatically, on schedule | Workflow files already committed (`.github/workflows/`) | Add the required repo secrets (Settings → Secrets → Actions) — see below |
+| **Google Cloud OAuth** *(optional)* | Powers the "Continue with Google" sign-in button | No — email/password sign-in works without it | Sign-in button + `/auth/callback` route already coded | Only if you want Google sign-in: create an OAuth client, enable the Google provider in Supabase Auth |
+
+Everything in the "Already in this repo" column needs zero code changes — it's provider accounts and configuration, not development work.
 
 ### Local Development
 
@@ -201,7 +217,7 @@ Mimori is designed to be forked and deployed for any business — the word "stor
 
 1. **Business name & logo** — as an admin, open your profile (avatar, top right) → **Settings** and set your business name and upload a logo. This replaces the "Mimori" wordmark in the nav and login page, live, with no redeploy. Leave it unset and the app shows "Mimori" as the baseline brand.
 2. `NEXT_PUBLIC_BUSINESS_NAME` in your environment variables is only the *initial seed* value for the first deploy — after that, the Settings section in your profile is the source of truth.
-3. **Brand color** — the whole Material Design 3 color system (light + dark) is generated algorithmically from one seed color. To rebrand, change the seed in `tailwind.config.ts` / `globals.css` (see [ARCHITECTURE.md § Design System](./ARCHITECTURE.md#10-design-system)) and regenerate the token set.
+3. **Brand color** — the whole Material Design 3 color system (light + dark) is generated algorithmically from one seed color. To rebrand, change the seed in `tailwind.config.ts` / `globals.css` (see [ARCHITECTURE.md § Design System](./ARCHITECTURE.md#12-design-system)) and regenerate the token set.
 4. Update `EMAIL_FROM` and `ADMIN_EMAIL` to the new business's domain.
 5. Replace or configure the location color palette in `AdminStoresClient.tsx`.
 
