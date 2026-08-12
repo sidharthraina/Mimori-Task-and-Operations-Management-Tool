@@ -29,6 +29,9 @@ export interface Store {
   address: string | null
   color: string
   is_default: boolean
+  latitude: number | null               // geofence center — null = geofencing disabled
+  longitude: number | null
+  geofence_radius_meters: number | null
   created_at: string
   updated_at: string
 }
@@ -69,6 +72,9 @@ export interface TaskLog {
   completed_at: string | null
   photo_url: string | null
   notes: string | null
+  photo_lat: number | null              // captured at upload — null if unavailable/geofencing off
+  photo_lng: number | null
+  photo_outside_geofence: boolean       // soft flag for admin review, never blocks the upload
   created_at: string
 }
 

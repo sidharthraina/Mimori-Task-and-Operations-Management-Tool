@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatTime, isOverdue, CATEGORY_ORDER, todayISO } from '@/lib/utils'
 import { isTaskDueOn } from '@/lib/recurrence'
-import type { Task, TaskLog, TaskCategory, User } from '@/types/database'
+import { getCurrentPosition, distanceMeters } from '@/lib/geo'
+import type { Task, TaskLog, TaskCategory, User, Store } from '@/types/database'
 import CameraCapture from '@/components/CameraCapture'
 import TaskFormFields, { emptyTaskForm, type TaskFormValue } from '@/components/admin/TaskFormFields'
 
@@ -52,6 +53,7 @@ interface Props {
   weekDates: string[]
   weekOffset?: number
   roster?: Roster[]
+  store?: Pick<Store, 'latitude' | 'longitude' | 'geofence_radius_meters'> | null
 }
 
 function parseDayHeader(dateStr: string, today: string) {
@@ -65,7 +67,7 @@ function parseDayHeader(dateStr: string, today: string) {
   }
 }
 
-export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, profile, weekDates, weekOffset = 0, roster = [] }: Props) {
+export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, profile, weekDates, weekOffset = 0, roster = [], store = null }: Props) {
   const [tasks, setTasks] = useState(initialTasks)
   const [logs, setLogs] = useState(initialLogs)
   const [toggling, setToggling] = useState<string | null>(null)
@@ -256,9 +258,14 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
     const ext = file.name.split('.').pop()
     const path = `${profile.id}/${today}/${task.id}.${ext}`
 
-    const { error: uploadErr } = await supabase.storage
-      .from('task-photos')
-      .upload(path, file, { upsert: true })
+    // Geofencing is opt-in per store — only ask for location if the store
+    // actually has a center + radius configured, so staff at stores that
+    // haven't enabled this never see a location permission prompt.
+    const geofenceEnabled = store?.latitude != null && store?.longitude != null && store?.geofence_radius_meters != null
+    const [{ error: uploadErr }, position] = await Promise.all([
+      supabase.storage.from('task-photos').upload(path, file, { upsert: true }),
+      geofenceEnabled ? getCurrentPosition() : Promise.resolve(null),
+    ])
 
     if (uploadErr) { setError('Upload failed: ' + uploadErr.message); setUploading(null); return }
 
@@ -269,10 +276,20 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
     const photoUrl = signedData?.signedUrl ?? path
     const existing = getLog(task.id, today)
 
+    const geoFields = position
+      ? {
+          photo_lat: position.lat,
+          photo_lng: position.lng,
+          photo_outside_geofence: geofenceEnabled
+            ? distanceMeters(position.lat, position.lng, store!.latitude!, store!.longitude!) > store!.geofence_radius_meters!
+            : false,
+        }
+      : {}
+
     if (existing) {
       const { data, error: err } = await supabase
         .from('task_logs')
-        .update({ photo_url: photoUrl })
+        .update({ photo_url: photoUrl, ...geoFields })
         .eq('id', existing.id)
         .select()
         .single()
@@ -288,6 +305,7 @@ export default function WeeklyGrid({ tasks: initialTasks, logs: initialLogs, pro
           completed_by: profile.id,
           completed_at: new Date().toISOString(),
           photo_url: photoUrl,
+          ...geoFields,
         })
         .select()
         .single()

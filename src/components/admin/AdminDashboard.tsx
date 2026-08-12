@@ -63,7 +63,7 @@ const STATUS_FILTER_LABELS: Record<string, string> = {
 export default function AdminDashboard({ tasks, logs: initialLogs, today, roster = [] }: Props) {
   const [filterDate, setFilterDate] = useState(today)
   const [filterStatus, setFilterStatus] = useState<string>('all')
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [photoPopup, setPhotoPopup] = useState<{ url: string; outsideGeofence: boolean } | null>(null)
   const [logs, setLogs] = useState<TaskLogWithTask[]>(initialLogs)
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
 
@@ -226,12 +226,22 @@ export default function AdminDashboard({ tasks, logs: initialLogs, today, roster
                   </td>
                   <td className="px-4 py-3">
                     {log?.photo_url ? (
-                      <button
-                        onClick={() => setPhotoUrl(log?.photo_url ?? null)}
-                        className="text-xs font-medium text-primary hover:text-primary/80 underline underline-offset-2"
-                      >
-                        View
-                      </button>
+                      <span className="inline-flex items-center gap-1.5">
+                        <button
+                          onClick={() => setPhotoPopup({ url: log.photo_url!, outsideGeofence: log.photo_outside_geofence })}
+                          className="text-xs font-medium text-primary hover:text-primary/80 underline underline-offset-2"
+                        >
+                          View
+                        </button>
+                        {log.photo_outside_geofence && (
+                          <span
+                            title="Photo taken outside the store's geofence — worth a second look"
+                            className="text-xs" role="img" aria-label="Outside geofence"
+                          >
+                            📍⚠️
+                          </span>
+                        )}
+                      </span>
                     ) : (
                       <span className="text-onSurfaceVariant/40">—</span>
                     )}
@@ -248,14 +258,14 @@ export default function AdminDashboard({ tasks, logs: initialLogs, today, roster
       </p>
 
       {/* Photo popup — backdrop stays dark regardless of theme (lightbox convention) */}
-      {photoUrl && (
+      {photoPopup && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-          onClick={() => setPhotoUrl(null)}
+          onClick={() => setPhotoPopup(null)}
         >
           <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
             <button
-              onClick={() => setPhotoUrl(null)}
+              onClick={() => setPhotoPopup(null)}
               className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-surfaceContainerLowest shadow-elevation-2 flex items-center justify-center text-onSurfaceVariant hover:text-onSurface hover:bg-surfaceContainer transition-colors"
               aria-label="Close"
             >
@@ -263,9 +273,14 @@ export default function AdminDashboard({ tasks, logs: initialLogs, today, roster
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+            {photoPopup.outsideGeofence && (
+              <p className="mb-2 text-sm text-onWarningContainer bg-warningContainer rounded-xl px-3 py-2">
+                📍⚠️ This photo was taken outside the store&apos;s configured geofence.
+              </p>
+            )}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={photoUrl}
+              src={photoPopup.url}
               alt="Task proof"
               className="w-full rounded-2xl shadow-2xl object-contain max-h-[80vh]"
             />

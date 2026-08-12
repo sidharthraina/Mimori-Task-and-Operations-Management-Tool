@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { getCurrentPosition } from '@/lib/geo'
 import type { Store } from '@/types/database'
 
 // M3-generated swatch palette — HCT tone 55/chroma 55, spaced away from the
@@ -19,7 +20,7 @@ const COLORS = [
   { label: 'Rose',    hex: '#cb5f90' },
 ]
 
-const EMPTY_FORM = { name: '', address: '', color: '#d6721e' }
+const EMPTY_FORM = { name: '', address: '', color: '#d6721e', latitude: '', longitude: '', geofenceRadius: '' }
 
 interface Props {
   initialStores: Store[]
@@ -34,6 +35,7 @@ export default function AdminStoresClient({ initialStores }: Props) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [locating, setLocating] = useState(false)
 
   function openNew() {
     setEditing(null)
@@ -44,21 +46,52 @@ export default function AdminStoresClient({ initialStores }: Props) {
 
   function openEdit(store: Store) {
     setEditing(store)
-    setForm({ name: store.name, address: store.address ?? '', color: store.color })
+    setForm({
+      name: store.name,
+      address: store.address ?? '',
+      color: store.color,
+      latitude: store.latitude != null ? String(store.latitude) : '',
+      longitude: store.longitude != null ? String(store.longitude) : '',
+      geofenceRadius: store.geofence_radius_meters != null ? String(store.geofence_radius_meters) : '',
+    })
     setError(null)
     setShowForm(true)
   }
 
+  async function handleUseCurrentLocation() {
+    setLocating(true)
+    setError(null)
+    const pos = await getCurrentPosition()
+    setLocating(false)
+    if (!pos) {
+      setError('Could not get your location. Check that location access is allowed for this site, then try again.')
+      return
+    }
+    setForm(f => ({ ...f, latitude: pos.lat.toFixed(6), longitude: pos.lng.toFixed(6) }))
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    setSaving(true)
     setError(null)
+
+    // Geofencing is all-or-nothing: either all three fields are set, or none are.
+    const geoFields = [form.latitude.trim(), form.longitude.trim(), form.geofenceRadius.trim()]
+    const geoFieldsFilled = geoFields.filter(Boolean).length
+    if (geoFieldsFilled > 0 && geoFieldsFilled < 3) {
+      setError('To enable geofencing, set latitude, longitude, and radius together — or leave all three blank to disable it.')
+      return
+    }
+
+    setSaving(true)
     const supabase = createClient()
 
     const payload = {
       name: form.name.trim(),
       address: form.address.trim() || null,
       color: form.color,
+      latitude: form.latitude.trim() ? parseFloat(form.latitude) : null,
+      longitude: form.longitude.trim() ? parseFloat(form.longitude) : null,
+      geofence_radius_meters: form.geofenceRadius.trim() ? parseInt(form.geofenceRadius, 10) : null,
     }
 
     if (editing) {
@@ -150,6 +183,11 @@ export default function AdminStoresClient({ initialStores }: Props) {
               {store.address && (
                 <p className="text-xs text-onSurfaceVariant/70 mt-0.5 ml-5">{store.address}</p>
               )}
+              {store.geofence_radius_meters != null && (
+                <p className="text-xs text-onSurfaceVariant/70 mt-0.5 ml-5">
+                  📍 Geofenced — flags task photos taken more than {store.geofence_radius_meters}m away
+                </p>
+              )}
             </div>
 
             {/* Actions */}
@@ -223,6 +261,42 @@ export default function AdminStoresClient({ initialStores }: Props) {
                 </div>
                 <p className="text-xs text-onSurfaceVariant/70 mt-2">
                   Selected: <span className="font-medium" style={{ color: form.color }}>{COLORS.find(c => c.hex === form.color)?.label ?? form.color}</span>
+                </p>
+              </div>
+
+              <div>
+                <label className="label">
+                  Geofence <span className="text-onSurfaceVariant/70 font-normal normal-case tracking-normal">(optional — flags task photos taken too far from this location, for admin review only)</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    className="input" type="number" step="any" placeholder="Latitude"
+                    value={form.latitude}
+                    onChange={e => setForm(f => ({ ...f, latitude: e.target.value }))}
+                  />
+                  <input
+                    className="input" type="number" step="any" placeholder="Longitude"
+                    value={form.longitude}
+                    onChange={e => setForm(f => ({ ...f, longitude: e.target.value }))}
+                  />
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <input
+                    className="input flex-1" type="number" min={1} placeholder="Radius in meters, e.g. 150"
+                    value={form.geofenceRadius}
+                    onChange={e => setForm(f => ({ ...f, geofenceRadius: e.target.value }))}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleUseCurrentLocation}
+                    disabled={locating}
+                    className="btn-secondary text-sm whitespace-nowrap"
+                  >
+                    {locating ? 'Locating…' : 'Use current location'}
+                  </button>
+                </div>
+                <p className="text-xs text-onSurfaceVariant/70 mt-2">
+                  Leave all three blank to disable geofencing for this store — staff will never be asked for their location.
                 </p>
               </div>
 

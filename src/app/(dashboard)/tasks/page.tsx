@@ -46,6 +46,12 @@ export default async function TasksPage({
     activeStoreId = def?.id ?? ''
   }
 
+  const { data: activeStore } = await supabase
+    .from('stores')
+    .select('latitude, longitude, geofence_radius_meters')
+    .eq('id', activeStoreId)
+    .single()
+
   const weekOffset = Math.min(0, parseInt(searchParams.week ?? '0', 10) || 0)
   const weekDates = getWeekDates(weekOffset)
   const [weekStart, weekEnd] = [weekDates[0], weekDates[6]]
@@ -82,6 +88,7 @@ export default async function TasksPage({
       weekDates={weekDates}
       weekOffset={weekOffset}
       roster={roster}
+      store={activeStore ?? null}
     />
   )
 }
