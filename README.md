@@ -236,6 +236,12 @@ A small "Powered by Mimori" credit, linking back to this repository, always stay
 
 ---
 
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for the workflow, and [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for community expectations. Found a security issue? See [SECURITY.md](./SECURITY.md) rather than opening a public issue.
+
+---
+
 ## License
 
 [MIT](./LICENSE) — use it, fork it, run it for your own business, or build on top of it.
